@@ -1,0 +1,30 @@
+[package]
+name = "rlbot-flatbuffers-py"
+version = "0.1.0"
+edition = "2021"
+description = "A Python module implemented in Rust for serializing and deserializing RLBot's flatbuffers"
+repository = "https://github.com/VirxEC/rlbot-flatbuffers-py"
+license = "MIT"
+readme = "README.md"
+exclude = [".github", "pytest.py", "rustfmt.toml", ".gitignore"]
+publish = false
+
+[lints.clippy]
+all = "warn"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "rlbot_flatbuffers"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.20.2"
+serde = "1.0.195"
+flatbuffers = { git = "https://github.com/google/flatbuffers", branch = "master" }
+get-size = { version = "0.1.4", features = ["derive"] }
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+panic = "abort"
