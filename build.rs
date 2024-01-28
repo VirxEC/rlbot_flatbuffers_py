@@ -48,8 +48,10 @@ impl PythonBindGenerator {
 
         let struct_t_name = format!("{struct_name}T");
 
-        // read the contents of the file
         let contents = fs::read_to_string(path).ok()?;
+
+        #[cfg(windows)]
+        let contents = contents.replace("\r\n", "\n");
 
         let Some((types, bind_type)) = Self::get_normal_struct_types(&contents, &struct_t_name)
             .or_else(|| Self::get_enum_struct_types(&contents, &struct_name))
@@ -1194,10 +1196,9 @@ fn main() -> io::Result<()> {
         .spawn()?
         .wait()?;
 
-    let out_folder_path = format!("{OUT_FOLDER}/rlbot/flat");
-    let out_folder = Path::new(&out_folder_path);
+    let out_folder = Path::new(OUT_FOLDER).join("rlbot").join("flat");
 
-    assert!(out_folder.exists(), "Could not find generated folder: {}", out_folder_path);
+    assert!(out_folder.exists(), "Could not find generated folder: {}", out_folder.display());
 
     // ^ the above generates the Rust flatbuffers code,
     // and the below we generates the wanted additional Python binds
@@ -1210,12 +1211,6 @@ fn main() -> io::Result<()> {
     let mut type_data = Vec::new();
 
     for path in generated_files {
-        // check if it's a file or a directory
-        if path.is_dir() {
-            println!("Got directory, skipping for now");
-            continue;
-        }
-
         let Some(mut python_bind_generator) = PythonBindGenerator::new(&path) else {
             continue;
         };
