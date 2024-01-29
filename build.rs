@@ -294,6 +294,8 @@ impl PythonBindGenerator {
         self.write_str("}");
         self.write_str("");
 
+        self.generate_union_py_methods();
+
         self.write_str("#[pyclass(module = \"rlbot_flatbuffers\", get_all, set_all)]");
         self.write_str("#[derive(Debug, Default, Clone, GetSize)]");
         self.write_string(format!("pub struct {} {{", self.struct_name));
@@ -317,6 +319,38 @@ impl PythonBindGenerator {
 
         self.write_str("}");
         self.write_str("");
+    }
+
+    fn generate_union_py_methods(&mut self) {
+        self.write_str("#[pymethods]");
+        self.write_string(format!("impl {}Type {{", self.struct_name));
+
+        self.write_str("    #[new]");
+        assert!(u8::try_from(self.types.len()).is_ok());
+
+        self.write_str("    #[pyo3(signature = (value=Default::default()))]");
+        self.write_str("    pub fn new(value: u8) -> Self {");
+        self.write_str("        match value {");
+
+        for (i, variable_info) in self.types.iter().enumerate() {
+            let variable_name = &variable_info[0];
+
+            self.file_contents
+                .push(Cow::Owned(format!("            {i} => Self::{variable_name},",)));
+        }
+
+        if self.types.len() != usize::from(u8::MAX) {
+            self.write_str("            v => panic!(\"Unknown value: {v}\"),");
+        }
+
+        self.write_str("        }");
+        self.write_str("    }");
+
+        self.write_str("");
+
+        self.generate_str_method();
+
+        self.write_str("}");
     }
 
     fn generate_from_flat_impls(&mut self) {
@@ -914,8 +948,11 @@ impl PythonBindGenerator {
         self.generate_new_method();
         self.write_str("");
         self.generate_str_method();
-        self.write_str("");
-        self.generate_repr_method();
+
+        if self.bind_type != PythonBindType::Enum {
+            self.write_str("");
+            self.generate_repr_method();
+        }
 
         if self.bind_type != PythonBindType::Union {
             self.write_str("");
@@ -997,7 +1034,6 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
     let mut file_contents = vec![
         Cow::Borrowed("from __future__ import annotations"),
         Cow::Borrowed(""),
-        Cow::Borrowed("from enum import Enum"),
         Cow::Borrowed("from typing import Optional"),
         Cow::Borrowed(""),
         Cow::Borrowed("__doc__: str"),
@@ -1023,12 +1059,22 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
         let is_union = !types.is_empty() && types[0][1].is_empty();
 
         if is_union {
-            file_contents.push(Cow::Owned(format!("class {type_name}Type(Enum):")));
+            file_contents.push(Cow::Owned(format!("class {type_name}Type:")));
 
             for (i, variable_info) in types.iter().enumerate() {
                 let variable_name = variable_info[0].as_str();
-                file_contents.push(Cow::Owned(format!("    {variable_name} = {i}",)));
+                file_contents.push(Cow::Owned(format!("    {variable_name} = {type_name}Type({i})",)));
             }
+
+            file_contents.push(Cow::Borrowed(""));
+
+            file_contents.push(Cow::Borrowed("    def __init__(self, value: int = 0): ..."));
+            file_contents.push(Cow::Borrowed("    def __str__(self) -> str: ..."));
+            file_contents.push(Cow::Borrowed("    def __repr__(self) -> str: ..."));
+            file_contents.push(Cow::Borrowed("    def __int__(self) -> int: ..."));
+            file_contents.push(Cow::Owned(format!(
+                "    def __richcmp__(self, other: {type_name}, op: int) -> bool: ..."
+            )));
 
             file_contents.push(Cow::Borrowed(""));
         }
@@ -1055,7 +1101,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
             };
 
             if is_enum {
-                file_contents.push(Cow::Owned(format!("    {variable_name} = {variable_type}",)));
+                file_contents.push(Cow::Owned(format!("    {variable_name} = {type_name}({variable_type})")));
                 continue;
             }
 
@@ -1149,6 +1195,13 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
         file_contents.push(Cow::Borrowed("    def __str__(self) -> str: ..."));
         file_contents.push(Cow::Borrowed("    def __repr__(self) -> str: ..."));
 
+        if is_enum {
+            file_contents.push(Cow::Borrowed("    def __int__(self) -> int: ..."));
+            file_contents.push(Cow::Owned(format!(
+                "    def __richcmp__(self, other: {type_name}, op: int) -> bool: ..."
+            )));
+        }
+
         if !is_union {
             file_contents.push(Cow::Borrowed("    def pack(self) -> bytes: ..."));
             file_contents.push(Cow::Borrowed("    @staticmethod"));
@@ -1198,7 +1251,11 @@ fn main() -> io::Result<()> {
 
     let out_folder = Path::new(OUT_FOLDER).join("rlbot").join("flat");
 
-    assert!(out_folder.exists(), "Could not find generated folder: {}", out_folder.display());
+    assert!(
+        out_folder.exists(),
+        "Could not find generated folder: {}",
+        out_folder.display()
+    );
 
     // ^ the above generates the Rust flatbuffers code,
     // and the below we generates the wanted additional Python binds
