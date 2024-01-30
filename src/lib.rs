@@ -63,7 +63,7 @@ pynamedmodule! {
         OvertimeOption,
         PlayerSpectate,
         SphereShape,
-        PsyonixBotPlayer,
+        Psyonix,
         Touch,
         TextVAlign,
         ConsoleCommand,
@@ -74,7 +74,7 @@ pynamedmodule! {
         BallTypeOption,
         LoadoutPaint,
         RotatorPartial,
-        PartyMemberBotPlayer,
+        PartyMember,
         CylinderShape,
         PlayerInputChange,
         DesiredBallState,
@@ -107,7 +107,7 @@ pynamedmodule! {
         Bool,
         RespawnTimeOption,
         String2D,
-        HumanPlayer,
+        Human,
         GameInfo,
         PlayerInput,
         Color,
@@ -121,7 +121,7 @@ pynamedmodule! {
         RenderGroup,
         Launcher,
         BoxShape,
-        RLBotPlayer
+        RLBot
     ],
     vars: [
         ("__version__", env!("CARGO_PKG_VERSION"))
