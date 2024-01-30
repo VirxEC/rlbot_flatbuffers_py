@@ -25,7 +25,7 @@ struct PythonBindGenerator {
 }
 
 impl PythonBindGenerator {
-    const BASE_TYPES: [&'static str; 5] = ["bool", "i32", "f32", "String", "u8"];
+    const BASE_TYPES: [&'static str; 6] = ["bool", "i32", "u32", "f32", "String", "u8"];
 
     fn new(path: &Path) -> Option<Self> {
         // get the filename without the extension
@@ -1044,6 +1044,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
     let primitive_map = [
         ("bool", "bool"),
         ("i32", "int"),
+        ("u32", "int"),
         ("f32", "float"),
         ("String", "str"),
         ("u8", "int"),
@@ -1127,7 +1128,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
 
                 if type_name == "bool" {
                     file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[bool]")));
-                } else if type_name == "i32" {
+                } else if type_name == "i32" || type_name == "u32" {
                     file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[int]")));
                 } else if type_name == "f32" {
                     file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[float]")));
@@ -1170,7 +1171,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
 
                 let default_value = match variable_type.as_str() {
                     "bool" => Cow::Borrowed("False"),
-                    "i32" | "f32" | "u8" => Cow::Borrowed("0"),
+                    "i32" | "u32" | "f32" | "u8" => Cow::Borrowed("0"),
                     "String" => Cow::Borrowed("\"\""),
                     t => {
                         if t.starts_with("Vec<") {

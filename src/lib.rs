@@ -48,6 +48,7 @@ pynamedmodule! {
         GameStateType,
         GameSpeedOption,
         ScoreInfo,
+        BotSpawnIndex,
         MessagePacket,
         DemolishOption,
         Vector3Partial,
