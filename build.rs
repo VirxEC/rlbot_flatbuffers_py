@@ -1086,8 +1086,10 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
             file_contents.push(Cow::Owned(format!("    item_type: {}Type", type_name)));
         }
 
+        let mut python_types = Vec::new();
+
         'outer: for variable_info in types {
-            let mut variable_name = &variable_info[0];
+            let mut variable_name = variable_info[0].as_str();
 
             if variable_name == "NONE" {
                 continue;
@@ -1108,6 +1110,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
 
             for (rust_type, python_type) in primitive_map {
                 if variable_type == rust_type {
+                    python_types.push(python_type.to_string());
                     file_contents.push(Cow::Owned(format!("    {variable_name}: {python_type}")));
                     continue 'outer;
                 }
@@ -1118,6 +1121,8 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                     .trim_start_matches("Vec<")
                     .trim_end_matches('>')
                     .trim_end_matches('T');
+
+                python_types.push(format!("list[{type_name}]"));
                 file_contents.push(Cow::Owned(format!("    {variable_name}: list[{type_name}]")));
             } else if variable_type.starts_with("Option<") {
                 let type_name = variable_type
@@ -1126,24 +1131,32 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                     .trim_end_matches('>')
                     .trim_end_matches('T');
 
-                if type_name == "bool" {
-                    file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[bool]")));
+                let python_type = if type_name == "bool" {
+                    "bool"
                 } else if type_name == "i32" || type_name == "u32" {
-                    file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[int]")));
+                    "int"
                 } else if type_name == "f32" {
-                    file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[float]")));
+                    "float"
                 } else if type_name == "String" {
-                    file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[str]")));
+                    "str"
                 } else {
-                    file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[{type_name}]")));
-                }
+                    type_name
+                };
+
+                python_types.push(format!("Optional[{python_type}]"));
+                file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[{python_type}]")));
             } else if variable_type.starts_with("Box<") && variable_type.ends_with("T>") {
                 let type_name = variable_type.trim_start_matches("Box<").trim_end_matches("T>");
+
+                python_types.push(type_name.to_string());
                 file_contents.push(Cow::Owned(format!("    {variable_name}: {type_name}")));
             } else if variable_type.ends_with('T') {
                 let type_name = variable_type.trim_end_matches('T');
+
+                python_types.push(type_name.to_string());
                 file_contents.push(Cow::Owned(format!("    {variable_name}: {type_name}")));
             } else {
+                python_types.push(variable_type.clone());
                 file_contents.push(Cow::Owned(format!("    {variable_name}: {variable_type}")));
             }
         }
@@ -1156,6 +1169,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
             file_contents.push(Cow::Borrowed("    def __init__("));
             file_contents.push(Cow::Borrowed("        self,"));
 
+            let mut i = 0;
             for variable_info in types {
                 if &variable_info[0] == "NONE" {
                     continue;
@@ -1187,7 +1201,10 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                     }
                 };
 
-                file_contents.push(Cow::Owned(format!("        {variable_name}={default_value},")));
+                let python_type = &python_types[i];
+                file_contents.push(Cow::Owned(format!("        {variable_name}: {python_type}={default_value},")));
+
+                i += 1;
             }
 
             file_contents.push(Cow::Borrowed("    ): ..."));
