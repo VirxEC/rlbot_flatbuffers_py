@@ -651,7 +651,7 @@ impl PythonBindGenerator {
         self.write_str("    #[new]");
         assert!(u8::try_from(self.types.len()).is_ok());
 
-        let mut signature_parts = vec!["item_type=Default::default()".to_string()];
+        let mut signature_parts = Vec::new();
 
         for variable_info in &self.types {
             let variable_type = &variable_info[1];
@@ -668,7 +668,6 @@ impl PythonBindGenerator {
         self.write_string(format!("    #[pyo3(signature = ({}))]", signature_parts.join(", ")));
         self.write_str("    pub fn new(");
 
-        self.write_string(format!("        item_type: {}Type,", self.struct_name));
         for variable_info in &self.types {
             let variable_type = &variable_info[1];
 
@@ -684,9 +683,33 @@ impl PythonBindGenerator {
         }
 
         self.write_str("    ) -> Self {");
-        self.write_str("        Self {");
 
+        self.write_string(format!("        let mut item_type = {}Type::default();", self.struct_name));
+        for variable_info in &self.types {
+            let variable_name = &variable_info[0];
+            let variable_type = &variable_info[1];
+
+            if variable_type.is_empty() {
+                continue;
+            }
+
+            let snake_case_name = &variable_info[2];
+
+            self.file_contents.push(Cow::Borrowed(""));
+            self.file_contents.push(Cow::Owned(format!(
+                "        if {snake_case_name}.is_some() {{",
+            )));
+            self.file_contents.push(Cow::Owned(format!(
+                "            item_type = {}Type::{variable_name};",self.struct_name
+            )));
+            self.file_contents.push(Cow::Borrowed("        }"));
+        }
+
+        
+        self.write_str("");
+        self.write_str("        Self {");
         self.write_str("            item_type,");
+
         for variable_info in &self.types {
             let variable_type = &variable_info[1];
 
