@@ -1,6 +1,6 @@
 [package]
 name = "rlbot-flatbuffers-py"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 description = "A Python module implemented in Rust for serializing and deserializing RLBot's flatbuffers"
 repository = "https://github.com/VirxEC/rlbot-flatbuffers-py"
@@ -18,8 +18,8 @@ name = "rlbot_flatbuffers"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.20.2"
-serde = "1.0.195"
+pyo3 = "0.20.3"
+serde = "1.0.197"
 flatbuffers = { git = "https://github.com/google/flatbuffers", branch = "master" }
 get-size = { version = "0.1.4", features = ["derive"] }
 

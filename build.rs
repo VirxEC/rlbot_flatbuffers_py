@@ -696,16 +696,15 @@ impl PythonBindGenerator {
             let snake_case_name = &variable_info[2];
 
             self.file_contents.push(Cow::Borrowed(""));
+            self.file_contents
+                .push(Cow::Owned(format!("        if {snake_case_name}.is_some() {{",)));
             self.file_contents.push(Cow::Owned(format!(
-                "        if {snake_case_name}.is_some() {{",
-            )));
-            self.file_contents.push(Cow::Owned(format!(
-                "            item_type = {}Type::{variable_name};",self.struct_name
+                "            item_type = {}Type::{variable_name};",
+                self.struct_name
             )));
             self.file_contents.push(Cow::Borrowed("        }"));
         }
 
-        
         self.write_str("");
         self.write_str("        Self {");
         self.write_str("            item_type,");
@@ -1040,15 +1039,14 @@ fn mod_rs_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Res
 }
 
 fn class_names_txt_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result<()> {
-    let mut file_contents = vec!["[".to_string()];
+    let class_names = type_data
+        .iter()
+        .map(|(_, type_name, _)| format!("    {type_name}"))
+        .collect::<Vec<_>>();
 
-    for (_, type_name, _) in type_data {
-        file_contents.push(format!("    {type_name},"));
-    }
+    let file_contents = format!("[\n{}\n]", class_names.join(",\n"));
 
-    file_contents.push("]".to_string());
-
-    fs::write("classes.txt", file_contents.join("\n"))?;
+    fs::write("classes.txt", file_contents)?;
 
     Ok(())
 }

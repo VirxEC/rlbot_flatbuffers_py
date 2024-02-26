@@ -33,3 +33,6 @@ if __name__ == "__main__":
     ready_message = ReadyMessage(True, wants_game_messages=True)
     print(repr(ready_message))
     print(ready_message)
+
+    print(repr(StopCommand()))
+    print(StopCommand(True))
