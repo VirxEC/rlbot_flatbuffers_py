@@ -77,7 +77,9 @@ impl PythonBindGenerator {
         if bind_type == PythonBindType::Union {
             file_contents.push(Cow::Borrowed("use pyo3::{pyclass, pymethods};"));
         } else {
-            file_contents.push(Cow::Borrowed("use pyo3::{pyclass, pymethods, types::PyBytes, Python};"));
+            file_contents.push(Cow::Borrowed(
+                "use pyo3::{pyclass, pymethods, types::PyBytes, Bound, Python};",
+            ));
         }
 
         file_contents.push(Cow::Borrowed(""));
@@ -917,7 +919,7 @@ impl PythonBindGenerator {
     }
 
     fn generate_pack_method(&mut self) {
-        self.write_str("    fn pack<'p>(&self, py: Python<'p>) -> &'p PyBytes {");
+        self.write_str("    fn pack<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {");
         if self.has_complex_pack {
             self.write_str("        let size = self.get_size();");
             self.write_str("        let mut builder = FlatBufferBuilder::with_capacity(size);");
@@ -935,13 +937,13 @@ impl PythonBindGenerator {
             self.write_str("        let offset = flat_t.pack(&mut builder);");
             self.write_str("        builder.finish(offset, None);");
             self.write_str("");
-            self.write_str("        PyBytes::new(py, builder.finished_data())");
+            self.write_str("        PyBytes::new_bound(py, builder.finished_data())");
         } else if self.bind_type == PythonBindType::Enum {
-            self.write_str("        PyBytes::new(py, &[flat_t.0])");
+            self.write_str("        PyBytes::new_bound(py, &[flat_t.0])");
         } else {
             self.write_str("        let item = flat_t.pack();");
             self.write_str("");
-            self.write_str("        PyBytes::new(py, &item.0)");
+            self.write_str("        PyBytes::new_bound(py, &item.0)");
         }
 
         self.write_str("    }");

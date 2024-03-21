@@ -27,7 +27,7 @@ macro_rules! pynamedmodule {
         #[doc = $doc]
         #[pymodule]
         #[allow(redundant_semicolons)]
-        fn $name(_py: Python, m: &PyModule) -> PyResult<()> {
+        fn $name(_py: Python, m: Bound<PyModule>) -> PyResult<()> {
             $(m.add_class::<$class_name>()?);*;
             $(m.add($var_name, $value)?);*;
             Ok(())

@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     from time import time_ns
 
-    num_trials = 1_000
+    num_trials = 10_000_000
 
     total_pack_time = 0
     total_unpack_time = 0
