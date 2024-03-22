@@ -17,8 +17,22 @@ pub mod generated;
 )]
 mod python;
 
-use pyo3::prelude::*;
+use pyo3::{prelude::*, PyClass};
 use python::*;
+
+pub trait PyDefault: Sized + PyClass {
+    fn py_default(py: Python) -> Py<Self>;
+}
+
+impl<T: Default + PyClass + Into<PyClassInitializer<T>>> PyDefault for T {
+    fn py_default(py: Python) -> Py<Self> {
+        Py::new(py, Self::default()).unwrap()
+    }
+}
+
+pub fn get_py_default<T: PyDefault>() -> Py<T> {
+    Python::with_gil(|py| T::py_default(py))
+}
 
 #[must_use]
 pub fn none_str() -> String {

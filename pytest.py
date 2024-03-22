@@ -25,6 +25,8 @@ if __name__ == "__main__":
     dgs = DesiredGameState(game_info_state=DesiredGameInfoState(game_speed=Float(1), end_match=Bool()))
     dgs.game_info_state.world_gravity_z = Float(-650)
     dgs.game_info_state.end_match.val = True
+    dgs.console_commands.append(ConsoleCommand("freeze"))
+    dgs.ball_state = DesiredBallState()
 
     print(repr(dgs))
     print(dgs)
