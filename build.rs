@@ -72,7 +72,9 @@ impl PythonBindGenerator {
             }
         }
 
-        file_contents.push(Cow::Borrowed("use get_size::GetSize;"));
+        if bind_type == PythonBindType::Struct && has_complex_pack {
+            file_contents.push(Cow::Borrowed("use get_size::GetSize;"));
+        }
 
         if bind_type == PythonBindType::Union {
             file_contents.push(Cow::Borrowed("use pyo3::{pyclass, pymethods};"));
@@ -93,6 +95,45 @@ impl PythonBindGenerator {
             bind_type,
             has_complex_pack,
         })
+    }
+
+    fn add_get_size_derive(&self, path: &Path) {
+        let mut contents = fs::read_to_string(path).unwrap();
+
+        #[cfg(windows)]
+        {
+            contents = contents.replace("\r\n", "\n");
+        }
+
+        contents = contents.replace("use self::flatbuffers", "use get_size::GetSize;\nuse self::flatbuffers");
+
+        match self.bind_type {
+            PythonBindType::Struct => {
+                contents = contents.replace(
+                    "#[derive(Debug, Clone, PartialEq)]\n",
+                    "#[derive(Debug, Clone, PartialEq, GetSize)]\n",
+                );
+
+                contents = contents.replace(
+                    "#[derive(Debug, Clone, PartialEq, Default)]\n",
+                    "#[derive(Debug, Clone, PartialEq, Default, GetSize)]\n",
+                );
+            }
+            PythonBindType::Union => {
+                contents = contents.replace(
+                    "#[derive(Debug, Clone, PartialEq)]\n",
+                    "#[derive(Debug, Clone, PartialEq, GetSize)]\n",
+                );
+            }
+            PythonBindType::Enum => {
+                contents = contents.replace(
+                    "#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]\n",
+                    "#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, GetSize)]\n",
+                );
+            }
+        }
+
+        fs::write(path, contents).unwrap();
     }
 
     fn get_enum_struct_types(contents: &str, struct_name: &str) -> Option<(Vec<Vec<String>>, PythonBindType)> {
@@ -210,7 +251,7 @@ impl PythonBindGenerator {
 
     fn generate_struct_definition(&mut self) {
         self.write_str("#[pyclass(module = \"rlbot_flatbuffers\", get_all, set_all)]");
-        self.write_str("#[derive(Debug, Default, Clone, GetSize)]");
+        self.write_str("#[derive(Debug, Default, Clone)]");
 
         if self.types.is_empty() {
             self.write_string(format!("pub struct {} {{}}", self.struct_name));
@@ -265,7 +306,7 @@ impl PythonBindGenerator {
 
     fn generate_enum_definition(&mut self) {
         self.write_str("#[pyclass(module = \"rlbot_flatbuffers\", get_all, set_all)]");
-        self.write_str("#[derive(Debug, Default, Clone, Copy, GetSize)]");
+        self.write_str("#[derive(Debug, Default, Clone, Copy)]");
         self.write_string(format!("pub enum {} {{", self.struct_name));
         self.write_str("    #[default]");
 
@@ -303,7 +344,7 @@ impl PythonBindGenerator {
         self.write_str("");
 
         self.write_str("#[pyclass(module = \"rlbot_flatbuffers\")]");
-        self.write_str("#[derive(Debug, Default, Clone, Copy, GetSize)]");
+        self.write_str("#[derive(Debug, Default, Clone, Copy)]");
         self.write_string(format!("pub enum {}Type {{", self.struct_name));
         self.write_str("    #[default]");
 
@@ -324,7 +365,7 @@ impl PythonBindGenerator {
         self.generate_union_py_methods();
 
         self.write_str("#[pyclass(module = \"rlbot_flatbuffers\", get_all, set_all)]");
-        self.write_str("#[derive(Debug, Default, Clone, GetSize)]");
+        self.write_str("#[derive(Debug, Default, Clone)]");
         self.write_string(format!("pub struct {} {{", self.struct_name));
 
         self.file_contents
@@ -1014,11 +1055,6 @@ impl PythonBindGenerator {
 
     fn generate_pack_method(&mut self) {
         self.write_str("    fn pack<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {");
-        if self.has_complex_pack {
-            self.write_str("        let size = self.get_size();");
-            self.write_str("        let mut builder = FlatBufferBuilder::with_capacity(size);");
-            self.write_str("");
-        }
 
         let name = if self.bind_type == PythonBindType::Enum {
             &self.struct_name
@@ -1028,6 +1064,9 @@ impl PythonBindGenerator {
         self.write_string(format!("        let flat_t = flat::{name}::from(self);"));
 
         if self.has_complex_pack {
+            self.write_str("        let size = flat_t.get_size();");
+            self.write_str("");
+            self.write_str("        let mut builder = FlatBufferBuilder::with_capacity(size);");
             self.write_str("        let offset = flat_t.pack(&mut builder);");
             self.write_str("        builder.finish(offset, None);");
             self.write_str("");
@@ -1414,6 +1453,7 @@ fn main() -> io::Result<()> {
             continue;
         };
 
+        python_bind_generator.add_get_size_derive(&path);
         python_bind_generator.generate_definition();
         python_bind_generator.generate_from_flat_impls();
         python_bind_generator.generate_to_flat_impls();
