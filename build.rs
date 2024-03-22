@@ -26,6 +26,7 @@ struct PythonBindGenerator {
 
 impl PythonBindGenerator {
     const BASE_TYPES: [&'static str; 6] = ["bool", "i32", "u32", "f32", "String", "u8"];
+    const SPECIAL_BASE_TYPES: [&'static str; 2] = ["FloatT", "BoolT"];
 
     fn new(path: &Path) -> Option<Self> {
         // get the filename without the extension
@@ -952,6 +953,7 @@ impl PythonBindGenerator {
         }
 
         let mut signature_parts = Vec::new();
+        let mut needs_python = false;
 
         for variable_info in &self.types {
             let variable_name = &variable_info[0];
@@ -962,6 +964,15 @@ impl PythonBindGenerator {
             }
 
             if variable_type.starts_with("Option<") {
+                let inner_type = variable_type
+                    .trim_start_matches("Option<")
+                    .trim_start_matches("Box<")
+                    .trim_end_matches('>');
+
+                if Self::SPECIAL_BASE_TYPES.contains(&inner_type) {
+                    needs_python = true;
+                }
+
                 signature_parts.push(format!("{variable_name}=None"));
             } else if !Self::BASE_TYPES.contains(&variable_type.as_str())
                 && (variable_type.starts_with("Box<") || variable_type.ends_with('T'))
@@ -973,8 +984,11 @@ impl PythonBindGenerator {
         }
 
         self.write_string(format!("    #[pyo3(signature = ({}))]", signature_parts.join(", ")));
-
         self.write_str("    pub fn new(");
+
+        if needs_python {
+            self.write_str("        py: Python,");
+        }
 
         for variable_info in &self.types {
             let variable_name = &variable_info[0];
@@ -1002,6 +1016,10 @@ impl PythonBindGenerator {
 
                 if Self::BASE_TYPES.contains(&inner_type) {
                     variable_type = format!("Option<{inner_type}>");
+                } else if inner_type == "Float" {
+                    variable_type = String::from("Option<crate::Floats>");
+                } else if inner_type == "Bool" {
+                    variable_type = String::from("Option<crate::Bools>");
                 } else {
                     variable_type = format!("Option<Py<super::{inner_type}>>");
                 }
@@ -1022,8 +1040,18 @@ impl PythonBindGenerator {
 
         for variable_info in &self.types {
             let variable_name = &variable_info[0];
+            let variable_type = variable_info[1]
+                .trim_start_matches("Option<")
+                .trim_start_matches("Box<")
+                .trim_end_matches('>');
 
-            self.file_contents.push(Cow::Owned(format!("            {variable_name},")));
+            if Self::SPECIAL_BASE_TYPES.contains(&variable_type) {
+                self.file_contents.push(Cow::Owned(format!(
+                    "            {variable_name}: {variable_name}.map(|x| x.into_gil(py)),"
+                )));
+            } else {
+                self.file_contents.push(Cow::Owned(format!("            {variable_name},")));
+            }
         }
 
         self.write_str("        }");
@@ -1407,6 +1435,10 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                     "float"
                 } else if type_name == "String" {
                     "str"
+                } else if type_name == "Float" {
+                    "Float | float"
+                } else if type_name == "Bool" {
+                    "Bool | bool"
                 } else {
                     type_name
                 };

@@ -61,6 +61,48 @@ pub const fn bool_to_str(b: bool) -> &'static str {
     }
 }
 
+#[derive(Debug, Clone, FromPyObject)]
+pub enum Floats {
+    Flat(Py<Float>),
+    Num(f32),
+}
+
+impl Default for Floats {
+    fn default() -> Self {
+        Floats::Flat(get_py_default())
+    }
+}
+
+impl FromGil<Floats> for Py<Float> {
+    fn from_gil(py: Python, floats: Floats) -> Self {
+        match floats {
+            Floats::Flat(float) => float,
+            Floats::Num(num) => Py::new(py, Float::new(num)).unwrap(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, FromPyObject)]
+pub enum Bools {
+    Flat(Py<Bool>),
+    Num(bool),
+}
+
+impl Default for Bools {
+    fn default() -> Self {
+        Self::Flat(get_py_default())
+    }
+}
+
+impl FromGil<Bools> for Py<Bool> {
+    fn from_gil(py: Python, bools: Bools) -> Self {
+        match bools {
+            Bools::Flat(float) => float,
+            Bools::Num(num) => Py::new(py, Bool::new(num)).unwrap(),
+        }
+    }
+}
+
 macro_rules! pynamedmodule {
     (doc: $doc:literal, name: $name:tt, classes: [$($class_name:ident),*], vars: [$(($var_name:literal, $value:expr)),*]) => {
         #[doc = $doc]
