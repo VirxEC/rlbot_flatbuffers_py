@@ -9,16 +9,29 @@
 )]
 pub mod generated;
 
-#[allow(
-    clippy::too_many_arguments,
-    clippy::upper_case_acronyms,
-    clippy::enum_variant_names,
-    non_camel_case_types
-)]
+#[allow(clippy::enum_variant_names)]
 mod python;
 
 use pyo3::{prelude::*, PyClass};
 use python::*;
+
+pub trait FromGil<T> {
+    fn from_gil(py: Python, obj: T) -> Self;
+}
+
+pub trait IntoGil<T>: Sized {
+    fn into_gil(self, py: Python) -> T;
+}
+
+impl<T, U> IntoGil<U> for T
+where
+    U: FromGil<T>,
+{
+    #[inline]
+    fn into_gil(self, py: Python) -> U {
+        U::from_gil(py, self)
+    }
+}
 
 pub trait PyDefault: Sized + PyClass {
     fn py_default(py: Python) -> Py<Self>;

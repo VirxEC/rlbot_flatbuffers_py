@@ -61,7 +61,12 @@ impl PythonBindGenerator {
         };
 
         let has_complex_pack = contents.contains("pub fn pack<'b, A: flatbuffers::Allocator + 'b>(");
-        let mut file_contents = vec![Cow::Borrowed("use crate::generated::rlbot::flat;")];
+        let mut file_contents = vec![];
+
+        file_contents.push(Cow::Borrowed(match bind_type {
+            PythonBindType::Struct | PythonBindType::Union => "use crate::{generated::rlbot::flat, FromGil, IntoGil};",
+            PythonBindType::Enum => "use crate::generated::rlbot::flat;",
+        }));
 
         if bind_type != PythonBindType::Union {
             if has_complex_pack {
@@ -338,6 +343,7 @@ impl PythonBindGenerator {
     }
 
     fn generate_enum_definition(&mut self) {
+        self.write_str("#[allow(non_camel_case_types)]");
         self.write_str("#[pyclass(module = \"rlbot_flatbuffers\", get_all, set_all)]");
         self.write_str("#[derive(Debug, Default, Clone, Copy)]");
         self.write_string(format!("pub enum {} {{", self.struct_name));
@@ -513,9 +519,8 @@ impl PythonBindGenerator {
                 continue;
             }
 
-            self.write_string(format!("impl From<{impl_type}> for Py<{}> {{", self.struct_name));
-            self.write_string(format!("    fn from(mut flat_t: {impl_type}) -> Self {{"));
-            self.write_str("        Python::with_gil(|py| {");
+            self.write_string(format!("impl FromGil<{impl_type}> for Py<{}> {{", self.struct_name));
+            self.write_string(format!("    fn from_gil(py: Python, mut flat_t: {impl_type}) -> Self {{"));
             self.write_string(format!("        Py::new(py, {} {{", self.struct_name));
 
             if is_box {
@@ -532,12 +537,11 @@ impl PythonBindGenerator {
                 let snake_case_name = &variable_info[2];
 
                 self.file_contents.push(Cow::Owned(format!(
-                    "            {snake_case_name}: flat_t.take_{snake_case_name}().map(Into::into),",
+                    "            {snake_case_name}: flat_t.take_{snake_case_name}().map(|x| x.into_gil(py)),",
                 )));
             }
 
             self.write_str("        }).unwrap()");
-            self.write_str("        })");
             self.write_str("    }");
             self.write_str("}");
             self.write_str("");
@@ -573,21 +577,18 @@ impl PythonBindGenerator {
         ];
 
         for impl_type in from_impl_types {
-            self.write_string(format!("impl From<{impl_type}> for Py<{}> {{", self.struct_name));
+            self.write_string(format!("impl FromGil<{impl_type}> for Py<{}> {{", self.struct_name));
 
             if self.types.is_empty() {
-                self.write_string(format!("    fn from(_: {impl_type}) -> Self {{"));
-                self.write_str("        Python::with_gil(|py| {");
-                self.write_string(format!("        Py::new(py, {} {{}}).unwrap()", self.struct_name));
-                self.write_str("        })");
+                self.write_string(format!("    fn from_gil(py: Python, _: {impl_type}) -> Self {{"));
+                self.write_string(format!("        Py::new(py, {}::default()).unwrap()", self.struct_name));
                 self.write_str("    }");
                 self.write_str("}");
                 self.write_str("");
                 continue;
             }
 
-            self.write_string(format!("    fn from(flat_t: {impl_type}) -> Self {{"));
-            self.write_str("        Python::with_gil(|py| {");
+            self.write_string(format!("    fn from_gil(py: Python, flat_t: {impl_type}) -> Self {{"));
             self.write_string(format!("        Py::new(py, {} {{", self.struct_name));
 
             for variable_info in &self.types {
@@ -601,17 +602,18 @@ impl PythonBindGenerator {
                             .push(Cow::Owned(format!("            {variable_name}: flat_t.{variable_name},")));
                     } else {
                         self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: flat_t.{variable_name}.into_iter().map(Into::into).collect(),",
+                            "            {variable_name}: flat_t.{variable_name}.into_iter().map(|x| x.into_gil(py)).collect(),",
                         )));
                     }
                 } else if variable_type.starts_with("Option<") {
                     self.file_contents.push(Cow::Owned(format!(
-                        "            {variable_name}: flat_t.{variable_name}.map(Into::into),",
+                        "            {variable_name}: flat_t.{variable_name}.map(|x| x.into_gil(py)),",
                     )));
-                } else if Self::BASE_TYPES.contains(&variable_type)
-                    && !variable_type.starts_with("Box<")
-                    && !variable_type.ends_with('T')
-                {
+                } else if variable_type.starts_with("Box<") || variable_type.ends_with('T') {
+                    self.file_contents.push(Cow::Owned(format!(
+                        "            {variable_name}: flat_t.{variable_name}.into_gil(py),",
+                    )));
+                } else if Self::BASE_TYPES.contains(&variable_type) {
                     self.file_contents
                         .push(Cow::Owned(format!("            {variable_name}: flat_t.{variable_name},")));
                 } else {
@@ -622,7 +624,6 @@ impl PythonBindGenerator {
             }
 
             self.write_str("        }).unwrap()");
-            self.write_str("        })");
             self.write_str("    }");
             self.write_str("}");
             self.write_str("");
@@ -636,9 +637,11 @@ impl PythonBindGenerator {
         ];
 
         for impl_type in from_impl_types {
-            self.write_string(format!("impl From<&Py<{}>> for {impl_type} {{", self.struct_name));
-            self.write_string(format!("    fn from(py_type: &Py<{}>) -> Self {{", self.struct_name));
-            self.write_str("        Python::with_gil(|py| {");
+            self.write_string(format!("impl FromGil<&Py<{}>> for {impl_type} {{", self.struct_name));
+            self.write_string(format!(
+                "    fn from_gil(py: Python, py_type: &Py<{}>) -> Self {{",
+                self.struct_name
+            ));
             self.write_str("        let borrow = py_type.borrow(py);");
 
             let is_box_type = impl_type.contains("Box<");
@@ -668,7 +671,7 @@ impl PythonBindGenerator {
                     let snake_case_name = &variable_info[2];
 
                     self.file_contents.push(Cow::Owned(format!(
-                        "            {}Type::{variable_value} => flat::{}::{variable_name}(Box::from(borrow.{snake_case_name}.as_ref().unwrap())),",
+                        "            {}Type::{variable_value} => flat::{}::{variable_name}(borrow.{snake_case_name}.as_ref().unwrap().into_gil(py)),",
                         self.struct_name,
                         self.struct_t_name,
                     )));
@@ -680,7 +683,6 @@ impl PythonBindGenerator {
             } else {
                 self.write_str("        }");
             }
-            self.write_str("        })");
 
             self.write_str("    }");
             self.write_str("}");
@@ -727,18 +729,22 @@ impl PythonBindGenerator {
             let is_box_type = impl_type.contains("Box<");
 
             if !is_box_type {
-                self.write_string(format!("impl From<&{}> for {impl_type} {{", self.struct_name));
+                self.write_string(format!("impl FromGil<&{}> for {impl_type} {{", self.struct_name));
 
                 if self.types.is_empty() {
-                    self.write_string(format!("    fn from(_: &{}) -> Self {{", self.struct_name));
-                    self.write_str("        Self {}");
+                    self.write_string(format!("    fn from_gil(_: Python, _: &{}) -> Self {{", self.struct_name));
+                    self.write_str("        Self::default()");
                     self.write_str("    }");
                     self.write_str("}");
                     self.write_str("");
                     continue;
                 }
 
-                self.write_string(format!("    fn from(py_type: &{}) -> Self {{", self.struct_name));
+                self.write_str("    #[allow(unused_variables)]");
+                self.write_string(format!(
+                    "    fn from_gil(py: Python, py_type: &{}) -> Self {{",
+                    self.struct_name
+                ));
                 self.write_str("        Self {");
 
                 for variable_info in &self.types {
@@ -752,16 +758,20 @@ impl PythonBindGenerator {
                                 .push(Cow::Owned(format!("            {variable_name}: py_type.{variable_name},")));
                         } else {
                             self.file_contents.push(Cow::Owned(format!(
-                                "            {variable_name}: py_type.{variable_name}.iter().map(Into::into).collect(),",
+                                "            {variable_name}: py_type.{variable_name}.iter().map(|x| x.into_gil(py)).collect(),",
                             )));
                         }
                     } else if variable_type.starts_with("Option<") {
                         self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: py_type.{variable_name}.as_ref().map(Into::into),",
+                            "            {variable_name}: py_type.{variable_name}.as_ref().map(|x| x.into_gil(py)),",
                         )));
                     } else if variable_type == "String" {
                         self.file_contents.push(Cow::Owned(format!(
                             "            {variable_name}: py_type.{variable_name}.clone(),",
+                        )));
+                    } else if variable_type.ends_with('T') || variable_type.starts_with("Box<") {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "            {variable_name}: (&py_type.{variable_name}).into_gil(py),",
                         )));
                     } else if Self::BASE_TYPES.contains(&variable_type) {
                         self.file_contents
@@ -779,14 +789,16 @@ impl PythonBindGenerator {
                 self.write_str("");
             }
 
-            self.write_string(format!("impl From<&Py<{}>> for {impl_type} {{", self.struct_name));
+            self.write_string(format!("impl FromGil<&Py<{}>> for {impl_type} {{", self.struct_name));
 
             if self.types.is_empty() {
-                self.write_string(format!("    fn from(_: &Py<{}>) -> Self {{", self.struct_name));
+                self.write_string(format!("    fn from_gil(_: Python, _: &Py<{}>) -> Self {{", self.struct_name));
                 self.write_str("        Self::default()");
             } else {
-                self.write_string(format!("    fn from(py_type: &Py<{}>) -> Self {{", self.struct_name));
-                self.write_str("        Python::with_gil(|py| {");
+                self.write_string(format!(
+                    "    fn from_gil(py: Python, py_type: &Py<{}>) -> Self {{",
+                    self.struct_name
+                ));
                 self.write_str("        let borrow = py_type.borrow(py);");
 
                 if is_box_type {
@@ -806,16 +818,20 @@ impl PythonBindGenerator {
                                 .push(Cow::Owned(format!("            {variable_name}: borrow.{variable_name},")));
                         } else {
                             self.file_contents.push(Cow::Owned(format!(
-                                "            {variable_name}: borrow.{variable_name}.iter().map(Into::into).collect(),",
+                                "            {variable_name}: borrow.{variable_name}.iter().map(|x| x.into_gil(py)).collect(),",
                             )));
                         }
                     } else if variable_type.starts_with("Option<") {
                         self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: borrow.{variable_name}.as_ref().map(Into::into),",
+                            "            {variable_name}: borrow.{variable_name}.as_ref().map(|x| x.into_gil(py)),",
                         )));
                     } else if variable_type == "String" {
                         self.file_contents.push(Cow::Owned(format!(
                             "            {variable_name}: borrow.{variable_name}.clone(),",
+                        )));
+                    } else if variable_type.ends_with('T') || variable_type.starts_with("Box<") {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "            {variable_name}: (&borrow.{variable_name}).into_gil(py),",
                         )));
                     } else if Self::BASE_TYPES.contains(&variable_type) {
                         self.file_contents
@@ -832,8 +848,6 @@ impl PythonBindGenerator {
                 } else {
                     self.write_str("        }");
                 }
-
-                self.write_str("        })");
             }
 
             self.write_str("    }");
@@ -851,9 +865,9 @@ impl PythonBindGenerator {
     }
 
     fn generate_union_new_method(&mut self) {
-        self.write_str("    #[new]");
         assert!(u8::try_from(self.types.len()).is_ok());
 
+        self.write_str("    #[new]");
         self.write_str("    #[pyo3(signature = (item = None))]");
         self.write_string(format!("    pub fn new(item: Option<{}Union>) -> Self {{", self.struct_name));
         self.write_str("        match item {");
@@ -928,10 +942,11 @@ impl PythonBindGenerator {
 
     fn generate_struct_new_method(&mut self) {
         self.write_str("    #[new]");
+        self.write_str("    #[allow(clippy::too_many_arguments)]");
 
         if self.types.is_empty() {
-            self.write_str("    pub const fn new() -> Self {");
-            self.write_str("        Self {}");
+            self.write_str("    pub fn new() -> Self {");
+            self.write_str("        Self::default()");
             self.write_str("    }");
             return;
         }
@@ -1068,7 +1083,7 @@ impl PythonBindGenerator {
     }
 
     fn generate_enum_repr_method(&mut self) {
-        self.write_str("    pub fn __repr__(&self, _py: Python) -> String {");
+        self.write_str("    pub fn __repr__(&self) -> String {");
         self.write_string(format!("        format!(\"{}(value={{}})\", *self as u8)", self.struct_name));
         self.write_str("    }");
     }
@@ -1081,6 +1096,7 @@ impl PythonBindGenerator {
             return;
         }
 
+        self.write_str("#[allow(unused_variables)]");
         self.write_str("    pub fn __repr__(&self, py: Python) -> String {");
         self.write_str("        format!(");
 
@@ -1136,7 +1152,7 @@ impl PythonBindGenerator {
                 )));
             } else {
                 self.file_contents
-                    .push(Cow::Owned(format!("            self.{variable_name}.__repr__(py),")));
+                    .push(Cow::Owned(format!("            self.{variable_name}.__repr__(),")));
             }
         }
 
@@ -1152,7 +1168,12 @@ impl PythonBindGenerator {
         } else {
             &self.struct_t_name
         };
-        self.write_string(format!("        let flat_t = flat::{name}::from(self);"));
+
+        if self.bind_type == PythonBindType::Enum {
+            self.write_string(format!("        let flat_t = flat::{name}::from(self);"));
+        } else {
+            self.write_string(format!("        let flat_t = flat::{name}::from_gil(py, self);"));
+        }
 
         if self.has_complex_pack {
             self.write_str("        let size = flat_t.get_size();");
@@ -1180,9 +1201,9 @@ impl PythonBindGenerator {
             self.write_str("    fn unpack(data: &[u8]) -> Self {");
             self.write_string(format!("        root::<flat::{}>(data).unwrap().into()", self.struct_name));
         } else {
-            self.write_str("    fn unpack(data: &[u8]) -> Py<Self> {");
+            self.write_str("    fn unpack(py: Python, data: &[u8]) -> Py<Self> {");
             self.write_string(format!(
-                "        root::<flat::{}>(data).unwrap().unpack().into()",
+                "        root::<flat::{}>(data).unwrap().unpack().into_gil(py)",
                 self.struct_name
             ));
         }
