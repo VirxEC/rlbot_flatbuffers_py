@@ -290,6 +290,18 @@ impl PythonBindGenerator {
     }
 
     fn generate_union_definition(&mut self) {
+        self.write_str("#[derive(pyo3::FromPyObject)]");
+        self.write_string(format!("pub enum {}Union {{", self.struct_name));
+
+        for variable_info in self.types.iter().skip(1) {
+            let variable_name = &variable_info[0];
+            self.file_contents
+                .push(Cow::Owned(format!("    {variable_name}(super::{variable_name}),")));
+        }
+
+        self.write_str("}");
+        self.write_str("");
+
         self.write_str("#[pyclass(module = \"rlbot_flatbuffers\")]");
         self.write_str("#[derive(Debug, Default, Clone, Copy, GetSize)]");
         self.write_string(format!("pub enum {}Type {{", self.struct_name));
@@ -297,7 +309,13 @@ impl PythonBindGenerator {
 
         for variable_info in &self.types {
             let variable_name = &variable_info[0];
-            self.file_contents.push(Cow::Owned(format!("    {variable_name},")));
+
+            if variable_name == "NONE" {
+                self.file_contents.push(Cow::Borrowed("    #[pyo3(name = \"NONE\")]"));
+                self.file_contents.push(Cow::Borrowed("    None,"));
+            } else {
+                self.file_contents.push(Cow::Owned(format!("    {variable_name},")));
+            }
         }
 
         self.write_str("}");
@@ -342,7 +360,11 @@ impl PythonBindGenerator {
         self.write_str("        match value {");
 
         for (i, variable_info) in self.types.iter().enumerate() {
-            let variable_name = &variable_info[0];
+            let mut variable_name = variable_info[0].as_str();
+
+            if variable_name == "NONE" {
+                variable_name = "None";
+            }
 
             self.file_contents
                 .push(Cow::Owned(format!("            {i} => Self::{variable_name},")));
@@ -397,7 +419,7 @@ impl PythonBindGenerator {
 
                 if variable_name == "NONE" {
                     self.file_contents.push(Cow::Owned(format!(
-                        "            flat::{}::{variable_name} => Self::NONE,",
+                        "            flat::{}::{variable_name} => Self::None,",
                         self.struct_t_name,
                     )));
                 } else {
@@ -547,12 +569,12 @@ impl PythonBindGenerator {
                 if variable_value.is_empty() {
                     if is_box_type {
                         self.file_contents.push(Cow::Owned(format!(
-                            "            {}Type::NONE => flat::{}::NONE,",
+                            "            {}Type::None => flat::{}::NONE,",
                             self.struct_name, self.struct_t_name
                         )));
                     } else {
                         self.file_contents.push(Cow::Owned(format!(
-                            "            {}Type::NONE => Self::NONE,",
+                            "            {}Type::None => Self::NONE,",
                             self.struct_name
                         )));
                     }
@@ -698,74 +720,48 @@ impl PythonBindGenerator {
         self.write_str("    #[new]");
         assert!(u8::try_from(self.types.len()).is_ok());
 
-        let mut signature_parts = Vec::new();
+        self.write_str("    #[pyo3(signature = (item = None))]");
+        self.write_string(format!("    pub fn new(item: Option<{}Union>) -> Self {{", self.struct_name));
+        self.write_str("        match item {");
 
-        for variable_info in &self.types {
-            let variable_type = &variable_info[1];
-
-            if variable_type.is_empty() {
-                continue;
-            }
-
-            let snake_case_name = &variable_info[2];
-
-            signature_parts.push(format!("{snake_case_name}=None"));
-        }
-
-        self.write_string(format!("    #[pyo3(signature = ({}))]", signature_parts.join(", ")));
-        self.write_str("    pub fn new(");
-
-        for variable_info in &self.types {
-            let variable_type = &variable_info[1];
-
-            if variable_type.is_empty() {
-                continue;
-            }
-
-            let snake_case_name = &variable_info[2];
-
-            self.file_contents.push(Cow::Owned(format!(
-                "        {snake_case_name}: Option<super::{variable_type}>,"
-            )));
-        }
-
-        self.write_str("    ) -> Self {");
-
-        self.write_string(format!("        let mut item_type = {}Type::default();", self.struct_name));
         for variable_info in &self.types {
             let variable_name = &variable_info[0];
-            let variable_type = &variable_info[1];
 
-            if variable_type.is_empty() {
-                continue;
+            if variable_name == "NONE" {
+                self.file_contents.push(Cow::Borrowed("            None => Self::default(),"));
+            } else {
+                let wanted_snake_case_name = &variable_info[2];
+
+                self.file_contents.push(Cow::Owned(format!(
+                    "            Some({}Union::{}({wanted_snake_case_name})) => Self {{",
+                    self.struct_name, variable_name
+                )));
+                self.file_contents.push(Cow::Owned(format!(
+                    "                item_type: {}Type::{variable_name},",
+                    self.struct_name
+                )));
+
+                for variable_info in &self.types {
+                    let variable_type = &variable_info[1];
+
+                    if variable_type.is_empty() {
+                        continue;
+                    }
+
+                    let snake_case_name = &variable_info[2];
+
+                    if wanted_snake_case_name == snake_case_name {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "                {snake_case_name}: Some({snake_case_name}),",
+                        )));
+                    } else {
+                        self.file_contents
+                            .push(Cow::Owned(format!("                {snake_case_name}: None,",)));
+                    }
+                }
+
+                self.file_contents.push(Cow::Borrowed("            },"));
             }
-
-            let snake_case_name = &variable_info[2];
-
-            self.file_contents.push(Cow::Borrowed(""));
-            self.file_contents
-                .push(Cow::Owned(format!("        if {snake_case_name}.is_some() {{")));
-            self.file_contents.push(Cow::Owned(format!(
-                "            item_type = {}Type::{variable_name};",
-                self.struct_name
-            )));
-            self.file_contents.push(Cow::Borrowed("        }"));
-        }
-
-        self.write_str("");
-        self.write_str("        Self {");
-        self.write_str("            item_type,");
-
-        for variable_info in &self.types {
-            let variable_type = &variable_info[1];
-
-            if variable_type.is_empty() {
-                continue;
-            }
-
-            let snake_case_name = &variable_info[2];
-
-            self.file_contents.push(Cow::Owned(format!("            {snake_case_name},")));
         }
 
         self.write_str("        }");
@@ -901,8 +897,8 @@ impl PythonBindGenerator {
 
             if variable_type.is_empty() {
                 self.file_contents.push(Cow::Owned(format!(
-                    "            {}Type::NONE => String::from(\"()\"),",
-                    self.struct_name
+                    "            {}Type::None => String::from(\"{}()\"),",
+                    self.struct_name, self.struct_name
                 )));
             } else {
                 let snake_case_name = &variable_info[2];
@@ -916,10 +912,8 @@ impl PythonBindGenerator {
                     "            {}Type::{variable_name} => format!(",
                     self.struct_name
                 )));
-                self.file_contents.push(Cow::Owned(format!(
-                    "                \"{}({snake_case_name}={{}})\",",
-                    self.struct_name
-                )));
+                self.file_contents
+                    .push(Cow::Owned(format!("                \"{}({{}})\",", self.struct_name)));
 
                 self.file_contents
                     .push(Cow::Owned(format!("                self.{snake_case_name}")));
@@ -1287,6 +1281,18 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
 
         if is_enum {
             file_contents.push(Cow::Borrowed("    def __init__(self, value: int = 0): ..."));
+        } else if is_union {
+            file_contents.push(Cow::Borrowed("    def __init__("));
+
+            let types = types
+                .iter()
+                .map(|variable_info| variable_info[0].as_str())
+                .filter(|variable_name| *variable_name != "NONE")
+                .collect::<Vec<_>>();
+            let union_str = types.join(" | ");
+
+            file_contents.push(Cow::Owned(format!("        self, item: Optional[{union_str}] = None")));
+            file_contents.push(Cow::Borrowed("    ): ..."));
         } else {
             file_contents.push(Cow::Borrowed("    def __init__("));
             file_contents.push(Cow::Borrowed("        self,"));
@@ -1297,13 +1303,9 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                     continue;
                 }
 
-                let variable_name = if is_union { &variable_info[2] } else { &variable_info[0] };
+                let variable_name = &variable_info[0];
 
-                let variable_type = if is_union {
-                    format!("Option<{}>", variable_info[1])
-                } else {
-                    variable_info[1].clone()
-                };
+                let variable_type = variable_info[1].clone();
 
                 let default_value = match variable_type.as_str() {
                     "bool" => Cow::Borrowed("False"),

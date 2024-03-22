@@ -30,8 +30,10 @@ if __name__ == "__main__":
     print(dgs)
     print()
 
-    render_type = RenderType(line_3_d=Line3D(Vector3(0, 0, 0), Vector3(1, 1, 1), Color(255)))
+    render_type = RenderType(Line3D(Vector3(0, 0, 0), Vector3(1, 1, 1), Color(255)))
     render_type.line_3_d.color.a = 150
+
+    print(repr(RenderType()))
 
     print(repr(render_type))
     print(render_type)

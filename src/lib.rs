@@ -9,7 +9,12 @@
 )]
 pub mod generated;
 
-#[allow(clippy::too_many_arguments, clippy::upper_case_acronyms, non_camel_case_types)]
+#[allow(
+    clippy::too_many_arguments,
+    clippy::upper_case_acronyms,
+    clippy::enum_variant_names,
+    non_camel_case_types
+)]
 mod python;
 
 use pyo3::prelude::*;
