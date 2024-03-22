@@ -6,6 +6,7 @@ if __name__ == "__main__":
     color = Color(255, 0, 0)
     print(repr(color))
     print(color)
+    eval(repr(color))
     print()
 
     controller = ControllerState(throttle=1)
@@ -16,29 +17,30 @@ if __name__ == "__main__":
     ready_message = ReadyMessage(True, wants_game_messages=True)
     print(repr(ready_message))
     print(ready_message)
+    eval(repr(ready_message))
     print()
 
-    print(repr(StopCommand()))
-    print(StopCommand(True))
-    print()
-
-    dgs = DesiredGameState(game_info_state=DesiredGameInfoState(game_speed=Float(1), end_match=Bool()))
+    dgs = DesiredGameState(
+        game_info_state=DesiredGameInfoState(game_speed=Float(1), end_match=Bool())
+    )
     dgs.game_info_state.world_gravity_z = Float(-650)
     dgs.game_info_state.end_match.val = True
-    dgs.console_commands.append(ConsoleCommand("freeze"))
+    dgs.console_commands = [ConsoleCommand("freeze")]
     dgs.ball_state = DesiredBallState()
 
     print(repr(dgs))
     print(dgs)
+    eval(repr(dgs))
     print()
+
+    print(repr(RenderType()))
 
     render_type = RenderType(Line3D(Vector3(0, 0, 0), Vector3(1, 1, 1), Color(255)))
     render_type.line_3_d.color.a = 150
 
-    print(repr(RenderType()))
-
     print(repr(render_type))
     print(render_type)
+    eval(repr(render_type))
     print()
 
     num_trials = 1_000_000
