@@ -211,6 +211,13 @@ impl PythonBindGenerator {
     fn generate_struct_definition(&mut self) {
         self.write_str("#[pyclass(module = \"rlbot_flatbuffers\", get_all, set_all)]");
         self.write_str("#[derive(Debug, Default, Clone, GetSize)]");
+
+        if self.types.is_empty() {
+            self.write_string(format!("pub struct {} {{}}", self.struct_name));
+            self.write_str("");
+            return;
+        }
+
         self.write_string(format!("pub struct {} {{", self.struct_name));
 
         for variable_info in &self.types {
@@ -249,7 +256,7 @@ impl PythonBindGenerator {
             }
 
             self.file_contents
-                .push(Cow::Owned(format!("    pub {variable_name}: {variable_type},",)));
+                .push(Cow::Owned(format!("    pub {variable_name}: {variable_type},")));
         }
 
         self.write_str("}");
@@ -267,7 +274,7 @@ impl PythonBindGenerator {
             let variable_value = &variable_info[1];
 
             self.file_contents
-                .push(Cow::Owned(format!("    {variable_name} = {variable_value},",)));
+                .push(Cow::Owned(format!("    {variable_name} = {variable_value},")));
         }
 
         self.write_str("}");
@@ -338,7 +345,7 @@ impl PythonBindGenerator {
             let variable_name = &variable_info[0];
 
             self.file_contents
-                .push(Cow::Owned(format!("            {i} => Self::{variable_name},",)));
+                .push(Cow::Owned(format!("            {i} => Self::{variable_name},")));
         }
 
         if self.types.len() != usize::from(u8::MAX) {
@@ -351,6 +358,10 @@ impl PythonBindGenerator {
         self.write_str("");
 
         self.generate_str_method();
+
+        self.write_str("");
+
+        self.generate_enum_repr_method();
 
         self.write_str("}");
     }
@@ -464,6 +475,16 @@ impl PythonBindGenerator {
 
         for impl_type in from_impl_types {
             self.write_string(format!("impl From<{impl_type}> for {} {{", self.struct_name));
+
+            if self.types.is_empty() {
+                self.write_string(format!("    fn from(_: {impl_type}) -> Self {{"));
+                self.write_str("        Self {}");
+                self.write_str("    }");
+                self.write_str("}");
+                self.write_str("");
+                continue;
+            }
+
             self.write_string(format!("    fn from(flat_t: {impl_type}) -> Self {{"));
             self.write_str("        Self {");
 
@@ -475,7 +496,7 @@ impl PythonBindGenerator {
                     let inner_type = variable_type.trim_start_matches("Vec<").trim_end_matches('>');
                     if Self::BASE_TYPES.contains(&inner_type) {
                         self.file_contents
-                            .push(Cow::Owned(format!("            {variable_name}: flat_t.{variable_name},",)));
+                            .push(Cow::Owned(format!("            {variable_name}: flat_t.{variable_name},")));
                     } else {
                         self.file_contents.push(Cow::Owned(format!(
                             "            {variable_name}: flat_t.{variable_name}.into_iter().map(Into::into).collect(),",
@@ -487,7 +508,7 @@ impl PythonBindGenerator {
                     )));
                 } else if Self::BASE_TYPES.contains(&variable_type) {
                     self.file_contents
-                        .push(Cow::Owned(format!("            {variable_name}: flat_t.{variable_name},",)));
+                        .push(Cow::Owned(format!("            {variable_name}: flat_t.{variable_name},")));
                 } else {
                     self.file_contents.push(Cow::Owned(format!(
                         "            {variable_name}: flat_t.{variable_name}.into(),",
@@ -514,7 +535,7 @@ impl PythonBindGenerator {
 
             let is_box_type = impl_type.contains("Box<");
             if is_box_type {
-                self.write_str("        Box::new(match py_type.item_type {");
+                self.write_str("        Self::new(match py_type.item_type {");
             } else {
                 self.write_str("        match py_type.item_type {");
             }
@@ -524,10 +545,17 @@ impl PythonBindGenerator {
                 let variable_value = &variable_info[1];
 
                 if variable_value.is_empty() {
-                    self.file_contents.push(Cow::Owned(format!(
-                        "            {}Type::NONE => flat::{}::NONE,",
-                        self.struct_name, self.struct_t_name,
-                    )));
+                    if is_box_type {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "            {}Type::NONE => flat::{}::NONE,",
+                            self.struct_name, self.struct_t_name
+                        )));
+                    } else {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "            {}Type::NONE => Self::NONE,",
+                            self.struct_name
+                        )));
+                    }
                 } else {
                     let snake_case_name = &variable_info[2];
 
@@ -588,11 +616,28 @@ impl PythonBindGenerator {
 
         for impl_type in from_impl_types {
             self.write_string(format!("impl From<&{}> for {impl_type} {{", self.struct_name));
-            self.write_string(format!("    fn from(py_type: &{}) -> Self {{", self.struct_name));
 
             let is_box_type = impl_type.contains("Box<");
+
+            if self.types.is_empty() {
+                self.write_string(format!("    fn from(_: &{}) -> Self {{", self.struct_name));
+
+                if is_box_type {
+                    self.write_str("        Self::default()");
+                } else {
+                    self.write_str("        Self {}");
+                }
+
+                self.write_str("    }");
+                self.write_str("}");
+                self.write_str("");
+                continue;
+            }
+
+            self.write_string(format!("    fn from(py_type: &{}) -> Self {{", self.struct_name));
+
             if is_box_type {
-                self.write_string(format!("        Box::new(flat::{} {{", self.struct_t_name));
+                self.write_string(format!("        Self::new(flat::{} {{", self.struct_t_name));
             } else {
                 self.write_str("        Self {");
             }
@@ -605,7 +650,7 @@ impl PythonBindGenerator {
                     let inner_type = variable_type.trim_start_matches("Vec<").trim_end_matches('>');
                     if Self::BASE_TYPES.contains(&inner_type) {
                         self.file_contents
-                            .push(Cow::Owned(format!("            {variable_name}: py_type.{variable_name},",)));
+                            .push(Cow::Owned(format!("            {variable_name}: py_type.{variable_name},")));
                     } else {
                         self.file_contents.push(Cow::Owned(format!(
                             "            {variable_name}: py_type.{variable_name}.iter().map(Into::into).collect(),",
@@ -621,7 +666,7 @@ impl PythonBindGenerator {
                     )));
                 } else if Self::BASE_TYPES.contains(&variable_type) {
                     self.file_contents
-                        .push(Cow::Owned(format!("            {variable_name}: py_type.{variable_name},",)));
+                        .push(Cow::Owned(format!("            {variable_name}: py_type.{variable_name},")));
                 } else {
                     self.file_contents.push(Cow::Owned(format!(
                         "            {variable_name}: (&py_type.{variable_name}).into(),",
@@ -664,7 +709,7 @@ impl PythonBindGenerator {
 
             let snake_case_name = &variable_info[2];
 
-            signature_parts.push(format!("{}=None", snake_case_name));
+            signature_parts.push(format!("{snake_case_name}=None"));
         }
 
         self.write_string(format!("    #[pyo3(signature = ({}))]", signature_parts.join(", ")));
@@ -699,7 +744,7 @@ impl PythonBindGenerator {
 
             self.file_contents.push(Cow::Borrowed(""));
             self.file_contents
-                .push(Cow::Owned(format!("        if {snake_case_name}.is_some() {{",)));
+                .push(Cow::Owned(format!("        if {snake_case_name}.is_some() {{")));
             self.file_contents.push(Cow::Owned(format!(
                 "            item_type = {}Type::{variable_name};",
                 self.struct_name
@@ -740,7 +785,7 @@ impl PythonBindGenerator {
             let variable_value = &variable_info[1];
 
             self.file_contents
-                .push(Cow::Owned(format!("            {variable_value} => Self::{variable_name},",)));
+                .push(Cow::Owned(format!("            {variable_value} => Self::{variable_name},")));
         }
 
         if self.types.len() != usize::from(u8::MAX) {
@@ -754,6 +799,13 @@ impl PythonBindGenerator {
     fn generate_struct_new_method(&mut self) {
         self.write_str("    #[new]");
 
+        if self.types.is_empty() {
+            self.write_str("    pub fn new() -> Self {");
+            self.write_str("        Self {}");
+            self.write_str("    }");
+            return;
+        }
+
         let mut signature_parts = Vec::new();
 
         for variable_info in &self.types {
@@ -765,9 +817,9 @@ impl PythonBindGenerator {
             }
 
             if variable_type.starts_with("Option<") {
-                signature_parts.push(format!("{}=None", variable_name));
+                signature_parts.push(format!("{variable_name}=None"));
             } else {
-                signature_parts.push(format!("{}=Default::default()", variable_name));
+                signature_parts.push(format!("{variable_name}=Default::default()"));
             }
         }
 
@@ -809,7 +861,7 @@ impl PythonBindGenerator {
             }
 
             self.file_contents
-                .push(Cow::Owned(format!("        {variable_name}: {variable_type},",)));
+                .push(Cow::Owned(format!("        {variable_name}: {variable_type},")));
         }
 
         self.write_str("    ) -> Self {");
@@ -818,7 +870,7 @@ impl PythonBindGenerator {
         for variable_info in &self.types {
             let variable_name = &variable_info[0];
 
-            self.file_contents.push(Cow::Owned(format!("            {variable_name},",)));
+            self.file_contents.push(Cow::Owned(format!("            {variable_name},")));
         }
 
         self.write_str("        }");
@@ -849,24 +901,34 @@ impl PythonBindGenerator {
 
             if variable_type.is_empty() {
                 self.file_contents.push(Cow::Owned(format!(
-                    "            {}Type::NONE => format!(\"{}(item_type={{:?}})\", self.item_type),",
-                    self.struct_name, self.struct_name
+                    "            {}Type::NONE => String::from(\"()\"),",
+                    self.struct_name
                 )));
             } else {
                 let snake_case_name = &variable_info[2];
+                let inner_type = variable_type
+                    .trim_start_matches("Option<")
+                    .trim_start_matches("Box<")
+                    .trim_end_matches('>')
+                    .trim_end_matches('T');
 
                 self.file_contents.push(Cow::Owned(format!(
                     "            {}Type::{variable_name} => format!(",
                     self.struct_name
                 )));
                 self.file_contents.push(Cow::Owned(format!(
-                    "                \"{}(item_type={{:?}}, {snake_case_name}={{:?}})\",",
+                    "                \"{}({snake_case_name}={{}})\",",
                     self.struct_name
                 )));
-                self.file_contents.push(Cow::Owned(
-                    format!("                self.item_type, self.{snake_case_name},",),
-                ));
-                self.file_contents.push(Cow::Borrowed("            ),"));
+
+                self.file_contents
+                    .push(Cow::Owned(format!("                self.{snake_case_name}")));
+                self.file_contents.push(Cow::Borrowed("                    .as_ref()"));
+                self.file_contents
+                    .push(Cow::Owned(format!("                    .map(super::{inner_type}::__repr__)")));
+                self.file_contents
+                    .push(Cow::Borrowed("                    .unwrap_or_else(crate::none_str),"));
+                self.file_contents.push(Cow::Borrowed("                ),"));
             }
         }
 
@@ -881,6 +943,13 @@ impl PythonBindGenerator {
     }
 
     fn generate_struct_repr_method(&mut self) {
+        if self.types.is_empty() {
+            self.write_str("    pub fn __repr__(&self) -> String {");
+            self.write_string(format!("        String::from(\"{}()\")", self.struct_name));
+            self.write_str("    }");
+            return;
+        }
+
         self.write_str("    pub fn __repr__(&self) -> String {");
         self.write_str("        format!(");
 
@@ -891,10 +960,10 @@ impl PythonBindGenerator {
                 let variable_name = &variable_info[0];
                 let variable_type = variable_info[1].as_str();
 
-                if Self::BASE_TYPES.contains(&variable_type) {
-                    format!("{variable_name}={{}}")
-                } else {
+                if variable_type.starts_with("Vec<") {
                     format!("{variable_name}={{:?}}")
+                } else {
+                    format!("{variable_name}={{}}")
                 }
             })
             .collect::<Vec<_>>()
@@ -903,14 +972,45 @@ impl PythonBindGenerator {
 
         for variable_info in &self.types {
             let variable_name = &variable_info[0];
-            let variable_type = &variable_info[1];
+            let variable_type = variable_info[1].as_str();
 
             if variable_type == "bool" {
                 self.file_contents
-                    .push(Cow::Owned(format!("            crate::bool_to_str(self.{variable_name}),",)));
+                    .push(Cow::Owned(format!("            crate::bool_to_str(self.{variable_name}),")));
+            } else if Self::BASE_TYPES.contains(&variable_type) {
+                self.file_contents
+                    .push(Cow::Owned(format!("            self.{variable_name},")));
+            } else if variable_type.starts_with("Option<") {
+                let inner_type = variable_type
+                    .trim_start_matches("Option<")
+                    .trim_start_matches("Box<")
+                    .trim_end_matches('>')
+                    .trim_end_matches('T');
+
+                self.file_contents
+                    .push(Cow::Owned(format!("            self.{variable_name}")));
+                self.file_contents.push(Cow::Borrowed("                .as_ref()"));
+                self.file_contents
+                    .push(Cow::Owned(format!("                .map(super::{inner_type}::__repr__)")));
+                self.file_contents
+                    .push(Cow::Borrowed("                .unwrap_or_else(crate::none_str),"));
+            } else if variable_type.starts_with("Vec<") {
+                let inner_type = variable_type
+                    .trim_start_matches("Vec<")
+                    .trim_start_matches("Box<")
+                    .trim_end_matches('>')
+                    .trim_end_matches('T');
+
+                self.file_contents
+                    .push(Cow::Owned(format!("            self.{variable_name}")));
+                self.file_contents.push(Cow::Borrowed("                .iter()"));
+                self.file_contents
+                    .push(Cow::Owned(format!("                .map(super::{inner_type}::__repr__)")));
+                self.file_contents
+                    .push(Cow::Borrowed("                .collect::<Box<[_]>>(),"));
             } else {
                 self.file_contents
-                    .push(Cow::Owned(format!("            self.{variable_name},",)));
+                    .push(Cow::Owned(format!("            self.{variable_name}.__repr__(),")));
             }
         }
 
@@ -972,11 +1072,8 @@ impl PythonBindGenerator {
         self.generate_new_method();
         self.write_str("");
         self.generate_str_method();
-
-        if self.bind_type != PythonBindType::Enum {
-            self.write_str("");
-            self.generate_repr_method();
-        }
+        self.write_str("");
+        self.generate_repr_method();
 
         if self.bind_type != PythonBindType::Union {
             self.write_str("");
@@ -1006,10 +1103,10 @@ fn camel_to_snake_case(variable_name: &str) -> String {
     let mut last_was_uppercase = false;
     for c in variable_name.chars() {
         if c.is_uppercase() {
-            if !last_was_uppercase {
-                snake_case_parts.push(c.to_lowercase().to_string());
-            } else {
+            if last_was_uppercase {
                 snake_case_parts.last_mut().unwrap().push(c.to_lowercase().next().unwrap());
+            } else {
+                snake_case_parts.push(c.to_lowercase().to_string());
             }
 
             last_was_uppercase = true;
@@ -1087,7 +1184,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
 
             for (i, variable_info) in types.iter().enumerate() {
                 let variable_name = variable_info[0].as_str();
-                file_contents.push(Cow::Owned(format!("    {variable_name} = {type_name}Type({i})",)));
+                file_contents.push(Cow::Owned(format!("    {variable_name} = {type_name}Type({i})")));
             }
 
             file_contents.push(Cow::Borrowed(""));
@@ -1106,7 +1203,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
         file_contents.push(Cow::Owned(format!("class {type_name}:")));
 
         if is_union {
-            file_contents.push(Cow::Owned(format!("    item_type: {}Type", type_name)));
+            file_contents.push(Cow::Owned(format!("    item_type: {type_name}Type")));
         }
 
         let mut python_types = Vec::new();
@@ -1116,7 +1213,9 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
 
             if variable_name == "NONE" {
                 continue;
-            } else if is_union {
+            }
+
+            if is_union {
                 variable_name = &variable_info[2];
             }
 
@@ -1215,7 +1314,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                             Cow::Borrowed("[]")
                         } else if t.starts_with("Box<") {
                             let inner_type = t.trim_start_matches("Box<").trim_end_matches('>').trim_end_matches('T');
-                            Cow::Owned(format!("{}()", inner_type))
+                            Cow::Owned(format!("{inner_type}()"))
                         } else if t.starts_with("Option<") {
                             Cow::Borrowed("None")
                         } else {

@@ -1,17 +1,24 @@
 #[allow(
-    clippy::too_many_arguments,
-    clippy::useless_format,
-    clippy::upper_case_acronyms,
-    non_camel_case_types,
-    unused_variables
+    clippy::extra_unused_lifetimes,
+    clippy::missing_safety_doc,
+    clippy::derivable_impls,
+    clippy::unnecessary_cast,
+    clippy::size_of_in_element_count,
+    non_snake_case,
+    unused_imports
 )]
-mod python;
-
-#[allow(clippy::all, non_snake_case, unused_imports)]
 pub mod generated;
+
+#[allow(clippy::too_many_arguments, clippy::upper_case_acronyms, non_camel_case_types)]
+mod python;
 
 use pyo3::prelude::*;
 use python::*;
+
+#[must_use]
+pub fn none_str() -> String {
+    String::from("None")
+}
 
 #[must_use]
 pub const fn bool_to_str(b: bool) -> &'static str {
