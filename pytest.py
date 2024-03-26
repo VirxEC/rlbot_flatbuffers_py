@@ -25,7 +25,10 @@ if __name__ == "__main__":
     print(repr(RenderType()))
 
     render_type = RenderType(Line3D(Vector3(0, 0, 0), Vector3(1, 1, 1), Color(255)))
-    render_type.line_3_d.color.a = 150
+    if isinstance(render_type.item, Line3D):
+        render_type.item.color.a = 150
+    else:
+        raise ValueError("Expected Line3D")
 
     print(repr(render_type))
     print(render_type)

@@ -84,7 +84,7 @@ impl PythonBindGenerator {
         file_contents.push(Cow::Borrowed(match bind_type {
             PythonBindType::Struct => "use pyo3::{pyclass, pymethods, types::PyBytes, Bound, Py, Python};",
             PythonBindType::Enum => "use pyo3::{pyclass, pymethods, types::PyBytes, Bound, Python};",
-            PythonBindType::Union => "use pyo3::{pyclass, pymethods, Py, Python};",
+            PythonBindType::Union => "use pyo3::{pyclass, pymethods, Py, PyObject, Python, ToPyObject};",
         }));
 
         file_contents.push(Cow::Borrowed(""));
@@ -404,12 +404,12 @@ impl PythonBindGenerator {
 
         self.generate_union_py_methods();
 
-        self.write_str("#[pyclass(module = \"rlbot_flatbuffers\", get_all, set_all)]");
+        self.write_str("#[pyclass(module = \"rlbot_flatbuffers\")]");
         self.write_str("#[derive(Debug, Default, Clone)]");
         self.write_string(format!("pub struct {} {{", self.struct_name));
 
-        self.file_contents
-            .push(Cow::Owned(format!("    pub item_type: {}Type,", self.struct_name)));
+        self.write_str("    #[pyo3(get)]");
+        self.write_string(format!("    pub item_type: {}Type,", self.struct_name));
 
         for variable_info in &self.types {
             let variable_type = &variable_info[1];
@@ -457,7 +457,6 @@ impl PythonBindGenerator {
 
         self.write_str("        }");
         self.write_str("    }");
-
         self.write_str("");
 
         self.generate_str_method();
@@ -915,6 +914,99 @@ impl PythonBindGenerator {
 
         self.write_str("        }");
         self.write_str("    }");
+        self.write_str("");
+        self.write_str("    #[getter(item)]");
+        self.write_str("    pub fn get_item(&mut self, py: Python) -> Option<PyObject> {");
+        self.write_str("        match self.item_type {");
+
+        for variable_info in &self.types {
+            let variable_name = &variable_info[0];
+
+            if variable_name == "NONE" {
+                self.file_contents
+                    .push(Cow::Owned(format!("            {}Type::None => None,", self.struct_name)));
+            } else {
+                let wanted_snake_case_name = &variable_info[2];
+
+                self.file_contents.push(Cow::Owned(format!(
+                    "            {}Type::{variable_name} => self.{wanted_snake_case_name}.as_ref().map(|x| x.to_object(py)),",
+                    self.struct_name
+                )));
+            }
+        }
+
+        self.write_str("        }");
+        self.write_str("    }");
+        self.write_str("");
+        self.write_str("    #[setter(item)]");
+        self.write_string(format!(
+            "    pub fn set_item(&mut self, item: Option<{}Union>) {{",
+            self.struct_name
+        ));
+        self.write_str("        match item {");
+
+        for variable_info in &self.types {
+            let variable_name = &variable_info[0];
+
+            if variable_name == "NONE" {
+                self.file_contents.push(Cow::Borrowed("            None => {"));
+                self.file_contents.push(Cow::Owned(format!(
+                    "                self.item_type = {}Type::None;",
+                    self.struct_name
+                )));
+
+                for variable_info in &self.types {
+                    let variable_type = &variable_info[1];
+
+                    if variable_type.is_empty() {
+                        continue;
+                    }
+
+                    let snake_case_name = &variable_info[2];
+
+                    self.file_contents
+                        .push(Cow::Owned(format!("                self.{snake_case_name} = None;",)));
+                }
+
+                self.file_contents.push(Cow::Borrowed("            }"));
+            } else {
+                let wanted_snake_case_name = &variable_info[2];
+
+                self.file_contents.push(Cow::Owned(format!(
+                    "            Some({}Union::{}({wanted_snake_case_name})) => {{",
+                    self.struct_name, variable_name
+                )));
+                self.file_contents.push(Cow::Owned(format!(
+                    "                self.item_type = {}Type::{variable_name};",
+                    self.struct_name
+                )));
+
+                for variable_info in &self.types {
+                    let variable_type = &variable_info[1];
+
+                    if variable_type.is_empty() {
+                        continue;
+                    }
+
+                    let snake_case_name = &variable_info[2];
+
+                    if wanted_snake_case_name == snake_case_name {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "                self.{snake_case_name} = Some({snake_case_name});",
+                        )));
+                    } else {
+                        self.file_contents
+                            .push(Cow::Owned(format!("                self.{snake_case_name} = None;",)));
+                    }
+                }
+
+                self.file_contents.push(Cow::Borrowed("            }"));
+            }
+        }
+
+        self.write_str("        }");
+        self.write_str("    }");
+        self.write_str("");
     }
 
     fn generate_enum_new_method(&mut self) {
@@ -1378,95 +1470,6 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
 
         if is_union {
             file_contents.push(Cow::Owned(format!("    item_type: {type_name}Type")));
-        }
-
-        let mut python_types = Vec::new();
-
-        'outer: for variable_info in types {
-            let mut variable_name = variable_info[0].as_str();
-
-            if variable_name == "NONE" {
-                continue;
-            }
-
-            if is_union {
-                variable_name = &variable_info[2];
-            }
-
-            let variable_type = if is_union {
-                format!("Option<{}>", variable_info[1])
-            } else {
-                variable_info[1].clone()
-            };
-
-            if is_enum {
-                file_contents.push(Cow::Owned(format!("    {variable_name} = {type_name}({variable_type})")));
-                continue;
-            }
-
-            for (rust_type, python_type) in primitive_map {
-                if variable_type == rust_type {
-                    python_types.push(python_type.to_string());
-                    file_contents.push(Cow::Owned(format!("    {variable_name}: {python_type}")));
-                    continue 'outer;
-                }
-            }
-
-            if variable_type.starts_with("Vec<") {
-                let type_name = variable_type
-                    .trim_start_matches("Vec<")
-                    .trim_end_matches('>')
-                    .trim_end_matches('T');
-
-                python_types.push(format!("list[{type_name}]"));
-                file_contents.push(Cow::Owned(format!("    {variable_name}: list[{type_name}]")));
-            } else if variable_type.starts_with("Option<") {
-                let type_name = variable_type
-                    .trim_start_matches("Option<")
-                    .trim_start_matches("Box<")
-                    .trim_end_matches('>')
-                    .trim_end_matches('T');
-
-                let python_type = if type_name == "bool" {
-                    "bool"
-                } else if type_name == "i32" || type_name == "u32" {
-                    "int"
-                } else if type_name == "f32" {
-                    "float"
-                } else if type_name == "String" {
-                    "str"
-                } else if type_name == "Float" {
-                    "Float | float"
-                } else if type_name == "Bool" {
-                    "Bool | bool"
-                } else {
-                    type_name
-                };
-
-                python_types.push(format!("Optional[{python_type}]"));
-                file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[{python_type}]")));
-            } else if variable_type.starts_with("Box<") && variable_type.ends_with("T>") {
-                let type_name = variable_type.trim_start_matches("Box<").trim_end_matches("T>");
-
-                python_types.push(type_name.to_string());
-                file_contents.push(Cow::Owned(format!("    {variable_name}: {type_name}")));
-            } else if variable_type.ends_with('T') {
-                let type_name = variable_type.trim_end_matches('T');
-
-                python_types.push(type_name.to_string());
-                file_contents.push(Cow::Owned(format!("    {variable_name}: {type_name}")));
-            } else {
-                python_types.push(variable_type.clone());
-                file_contents.push(Cow::Owned(format!("    {variable_name}: {variable_type}")));
-            }
-        }
-
-        file_contents.push(Cow::Borrowed(""));
-
-        if is_enum {
-            file_contents.push(Cow::Borrowed("    def __init__(self, value: int = 0): ..."));
-        } else if is_union {
-            file_contents.push(Cow::Borrowed("    def __init__("));
 
             let types = types
                 .iter()
@@ -1475,47 +1478,137 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                 .collect::<Vec<_>>();
             let union_str = types.join(" | ");
 
+            file_contents.push(Cow::Owned(format!("    item: Optional[{union_str}]")));
+            file_contents.push(Cow::Borrowed(""));
+            file_contents.push(Cow::Borrowed("    def __init__("));
             file_contents.push(Cow::Owned(format!("        self, item: Optional[{union_str}] = None")));
             file_contents.push(Cow::Borrowed("    ): ..."));
         } else {
-            file_contents.push(Cow::Borrowed("    def __init__("));
-            file_contents.push(Cow::Borrowed("        self,"));
+            let mut python_types = Vec::new();
 
-            let mut i = 0;
-            for variable_info in types {
-                if &variable_info[0] == "NONE" {
+            'outer: for variable_info in types {
+                let mut variable_name = variable_info[0].as_str();
+
+                if variable_name == "NONE" {
                     continue;
                 }
 
-                let variable_name = &variable_info[0];
+                if is_union {
+                    variable_name = &variable_info[2];
+                }
 
-                let variable_type = variable_info[1].clone();
-
-                let default_value = match variable_type.as_str() {
-                    "bool" => Cow::Borrowed("False"),
-                    "i32" | "u32" | "f32" | "u8" => Cow::Borrowed("0"),
-                    "String" => Cow::Borrowed("\"\""),
-                    t => {
-                        if t.starts_with("Vec<") {
-                            Cow::Borrowed("[]")
-                        } else if t.starts_with("Box<") {
-                            let inner_type = t.trim_start_matches("Box<").trim_end_matches('>').trim_end_matches('T');
-                            Cow::Owned(format!("{inner_type}()"))
-                        } else if t.starts_with("Option<") {
-                            Cow::Borrowed("None")
-                        } else {
-                            Cow::Owned(format!("{}()", t.trim_end_matches('T')))
-                        }
-                    }
+                let variable_type = if is_union {
+                    format!("Option<{}>", variable_info[1])
+                } else {
+                    variable_info[1].clone()
                 };
 
-                let python_type = &python_types[i];
-                file_contents.push(Cow::Owned(format!("        {variable_name}: {python_type}={default_value},")));
+                if is_enum {
+                    file_contents.push(Cow::Owned(format!("    {variable_name} = {type_name}({variable_type})")));
+                    continue;
+                }
 
-                i += 1;
+                for (rust_type, python_type) in primitive_map {
+                    if variable_type == rust_type {
+                        python_types.push(python_type.to_string());
+                        file_contents.push(Cow::Owned(format!("    {variable_name}: {python_type}")));
+                        continue 'outer;
+                    }
+                }
+
+                if variable_type.starts_with("Vec<") {
+                    let type_name = variable_type
+                        .trim_start_matches("Vec<")
+                        .trim_end_matches('>')
+                        .trim_end_matches('T');
+
+                    python_types.push(format!("list[{type_name}]"));
+                    file_contents.push(Cow::Owned(format!("    {variable_name}: list[{type_name}]")));
+                } else if variable_type.starts_with("Option<") {
+                    let type_name = variable_type
+                        .trim_start_matches("Option<")
+                        .trim_start_matches("Box<")
+                        .trim_end_matches('>')
+                        .trim_end_matches('T');
+
+                    let python_type = if type_name == "bool" {
+                        "bool"
+                    } else if type_name == "i32" || type_name == "u32" {
+                        "int"
+                    } else if type_name == "f32" {
+                        "float"
+                    } else if type_name == "String" {
+                        "str"
+                    } else if type_name == "Float" {
+                        "Float | float"
+                    } else if type_name == "Bool" {
+                        "Bool | bool"
+                    } else {
+                        type_name
+                    };
+
+                    python_types.push(format!("Optional[{python_type}]"));
+                    file_contents.push(Cow::Owned(format!("    {variable_name}: Optional[{python_type}]")));
+                } else if variable_type.starts_with("Box<") && variable_type.ends_with("T>") {
+                    let type_name = variable_type.trim_start_matches("Box<").trim_end_matches("T>");
+
+                    python_types.push(type_name.to_string());
+                    file_contents.push(Cow::Owned(format!("    {variable_name}: {type_name}")));
+                } else if variable_type.ends_with('T') {
+                    let type_name = variable_type.trim_end_matches('T');
+
+                    python_types.push(type_name.to_string());
+                    file_contents.push(Cow::Owned(format!("    {variable_name}: {type_name}")));
+                } else {
+                    python_types.push(variable_type.clone());
+                    file_contents.push(Cow::Owned(format!("    {variable_name}: {variable_type}")));
+                }
             }
 
-            file_contents.push(Cow::Borrowed("    ): ..."));
+            file_contents.push(Cow::Borrowed(""));
+
+            if is_enum {
+                file_contents.push(Cow::Borrowed("    def __init__(self, value: int = 0): ..."));
+            } else {
+                file_contents.push(Cow::Borrowed("    def __init__("));
+                file_contents.push(Cow::Borrowed("        self,"));
+
+                let mut i = 0;
+                for variable_info in types {
+                    if &variable_info[0] == "NONE" {
+                        continue;
+                    }
+
+                    let variable_name = &variable_info[0];
+
+                    let variable_type = variable_info[1].clone();
+
+                    let default_value = match variable_type.as_str() {
+                        "bool" => Cow::Borrowed("False"),
+                        "i32" | "u32" | "f32" | "u8" => Cow::Borrowed("0"),
+                        "String" => Cow::Borrowed("\"\""),
+                        t => {
+                            if t.starts_with("Vec<") {
+                                Cow::Borrowed("[]")
+                            } else if t.starts_with("Box<") {
+                                let inner_type = t.trim_start_matches("Box<").trim_end_matches('>').trim_end_matches('T');
+                                Cow::Owned(format!("{inner_type}()"))
+                            } else if t.starts_with("Option<") {
+                                Cow::Borrowed("None")
+                            } else {
+                                Cow::Owned(format!("{}()", t.trim_end_matches('T')))
+                            }
+                        }
+                    };
+
+                    let python_type = &python_types[i];
+                    file_contents.push(Cow::Owned(format!("        {variable_name}: {python_type}={default_value},")));
+
+                    i += 1;
+                }
+
+                file_contents.push(Cow::Borrowed("    ): ..."));
+            }
         }
 
         file_contents.push(Cow::Borrowed("    def __str__(self) -> str: ..."));
