@@ -383,7 +383,6 @@ impl PythonBindGenerator {
         self.write_str("}");
         self.write_str("");
 
-        self.write_str("#[pyclass(module = \"rlbot_flatbuffers\")]");
         self.write_str("#[derive(Debug, Default, Clone, Copy)]");
         self.write_string(format!("pub enum {}Type {{", self.struct_name));
         self.write_str("    #[default]");
@@ -392,7 +391,6 @@ impl PythonBindGenerator {
             let variable_name = &variable_info[0];
 
             if variable_name == "NONE" {
-                self.file_contents.push(Cow::Borrowed("    #[pyo3(name = \"NONE\")]"));
                 self.file_contents.push(Cow::Borrowed("    None,"));
             } else {
                 self.file_contents.push(Cow::Owned(format!("    {variable_name},")));
@@ -401,15 +399,10 @@ impl PythonBindGenerator {
 
         self.write_str("}");
         self.write_str("");
-
-        self.generate_union_py_methods();
-
         self.write_str("#[pyclass(module = \"rlbot_flatbuffers\")]");
         self.write_str("#[derive(Debug, Default, Clone)]");
         self.write_string(format!("pub struct {} {{", self.struct_name));
-
-        self.write_str("    #[pyo3(get)]");
-        self.write_string(format!("    pub item_type: {}Type,", self.struct_name));
+        self.write_string(format!("    item_type: {}Type,", self.struct_name));
 
         for variable_info in &self.types {
             let variable_type = &variable_info[1];
@@ -421,51 +414,12 @@ impl PythonBindGenerator {
             let snake_case_name = &variable_info[2];
 
             self.file_contents.push(Cow::Owned(format!(
-                "    pub {snake_case_name}: Option<Py<super::{variable_type}>>,",
+                "    {snake_case_name}: Option<Py<super::{variable_type}>>,",
             )));
         }
 
         self.write_str("}");
         self.write_str("");
-    }
-
-    fn generate_union_py_methods(&mut self) {
-        self.write_str("#[pymethods]");
-        self.write_string(format!("impl {}Type {{", self.struct_name));
-
-        self.write_str("    #[new]");
-        assert!(u8::try_from(self.types.len()).is_ok());
-
-        self.write_str("    #[pyo3(signature = (value=Default::default()))]");
-        self.write_str("    pub fn new(value: u8) -> Self {");
-        self.write_str("        match value {");
-
-        for (i, variable_info) in self.types.iter().enumerate() {
-            let mut variable_name = variable_info[0].as_str();
-
-            if variable_name == "NONE" {
-                variable_name = "None";
-            }
-
-            self.file_contents
-                .push(Cow::Owned(format!("            {i} => Self::{variable_name},")));
-        }
-
-        if self.types.len() != usize::from(u8::MAX) {
-            self.write_str("            v => panic!(\"Unknown value: {v}\"),");
-        }
-
-        self.write_str("        }");
-        self.write_str("    }");
-        self.write_str("");
-
-        self.generate_str_method();
-
-        self.write_str("");
-
-        self.generate_enum_repr_method();
-
-        self.write_str("}");
     }
 
     fn generate_from_flat_impls(&mut self) {
@@ -1445,32 +1399,9 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
 
         let is_union = !types.is_empty() && types[0][1].is_empty();
 
-        if is_union {
-            file_contents.push(Cow::Owned(format!("class {type_name}Type:")));
-
-            for (i, variable_info) in types.iter().enumerate() {
-                let variable_name = variable_info[0].as_str();
-                file_contents.push(Cow::Owned(format!("    {variable_name} = {type_name}Type({i})")));
-            }
-
-            file_contents.push(Cow::Borrowed(""));
-
-            file_contents.push(Cow::Borrowed("    def __init__(self, value: int = 0): ..."));
-            file_contents.push(Cow::Borrowed("    def __str__(self) -> str: ..."));
-            file_contents.push(Cow::Borrowed("    def __repr__(self) -> str: ..."));
-            file_contents.push(Cow::Borrowed("    def __int__(self) -> int: ..."));
-            file_contents.push(Cow::Owned(format!(
-                "    def __richcmp__(self, other: {type_name}, op: int) -> bool: ..."
-            )));
-
-            file_contents.push(Cow::Borrowed(""));
-        }
-
         file_contents.push(Cow::Owned(format!("class {type_name}:")));
 
         if is_union {
-            file_contents.push(Cow::Owned(format!("    item_type: {type_name}Type")));
-
             let types = types
                 .iter()
                 .map(|variable_info| variable_info[0].as_str())
