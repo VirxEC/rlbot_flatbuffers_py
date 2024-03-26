@@ -1182,7 +1182,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
     let mut file_contents = vec![
         Cow::Borrowed("from __future__ import annotations"),
         Cow::Borrowed(""),
-        Cow::Borrowed("from typing import Optional"),
+        Cow::Borrowed("from typing import Optional, Sequence"),
         Cow::Borrowed(""),
         Cow::Borrowed("__doc__: str"),
         Cow::Borrowed("__version__: str"),
@@ -1261,8 +1261,8 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                         .trim_end_matches('>')
                         .trim_end_matches('T');
 
-                    python_types.push(format!("list[{type_name}]"));
-                    file_contents.push(Cow::Owned(format!("    {variable_name}: list[{type_name}]")));
+                    python_types.push(format!("Sequence[{type_name}]"));
+                    file_contents.push(Cow::Owned(format!("    {variable_name}: Sequence[{type_name}]")));
                 } else if variable_type.starts_with("Option<") {
                     let type_name = variable_type
                         .trim_start_matches("Option<")
