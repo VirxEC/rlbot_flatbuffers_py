@@ -382,27 +382,9 @@ impl PythonBindGenerator {
 
         self.write_str("}");
         self.write_str("");
-
-        self.write_str("#[derive(Debug, Default, Clone, Copy)]");
-        self.write_string(format!("pub enum {}Type {{", self.struct_name));
-        self.write_str("    #[default]");
-
-        for variable_info in &self.types {
-            let variable_name = &variable_info[0];
-
-            if variable_name == "NONE" {
-                self.file_contents.push(Cow::Borrowed("    None,"));
-            } else {
-                self.file_contents.push(Cow::Owned(format!("    {variable_name},")));
-            }
-        }
-
-        self.write_str("}");
-        self.write_str("");
         self.write_str("#[pyclass(module = \"rlbot_flatbuffers\")]");
         self.write_str("#[derive(Debug, Default, Clone)]");
         self.write_string(format!("pub struct {} {{", self.struct_name));
-        self.write_string(format!("    item_type: {}Type,", self.struct_name));
 
         for variable_info in &self.types {
             let variable_type = &variable_info[1];
@@ -420,6 +402,32 @@ impl PythonBindGenerator {
 
         self.write_str("}");
         self.write_str("");
+        self.write_string(format!("impl {} {{", self.struct_name));
+        self.write_string(format!("    pub fn get(&self) -> Option<{}Union> {{", self.struct_name));
+
+        for variable_info in &self.types {
+            let variable_name = &variable_info[0];
+
+            if variable_name == "NONE" {
+                continue;
+            }
+
+            let wanted_snake_case_name = &variable_info[2];
+
+            self.file_contents.push(Cow::Owned(format!(
+                "        if let Some(item) = self.{wanted_snake_case_name}.as_ref() {{"
+            )));
+            self.file_contents.push(Cow::Owned(format!(
+                "            return Some({}Union::{}(item.clone()));",
+                self.struct_name, variable_name
+            )));
+            self.file_contents.push(Cow::Borrowed("        }"));
+            self.file_contents.push(Cow::Borrowed(""));
+        }
+        self.write_str("        None");
+        self.write_str("    }");
+        self.write_str("}");
+        self.write_str("");
     }
 
     fn generate_from_flat_impls(&mut self) {
@@ -433,55 +441,15 @@ impl PythonBindGenerator {
     fn generate_union_from_flat_impls(&mut self) {
         let from_impl_types = [
             format!("flat::{}", self.struct_t_name),
-            format!("&flat::{}", self.struct_t_name),
             format!("Box<flat::{}>", self.struct_t_name),
         ];
 
         for impl_type in from_impl_types {
-            self.write_string(format!("impl From<{impl_type}> for {}Type {{", self.struct_name));
-            self.write_string(format!("    fn from(flat_t: {impl_type}) -> Self {{"));
-
-            let is_box = impl_type.starts_with("Box<");
-            if is_box {
-                self.write_str("        match *flat_t {");
-            } else {
-                self.write_str("        match flat_t {");
-            }
-
-            for variable_info in &self.types {
-                let variable_name = &variable_info[0];
-
-                if variable_name == "NONE" {
-                    self.file_contents.push(Cow::Owned(format!(
-                        "            flat::{}::{variable_name} => Self::None,",
-                        self.struct_t_name,
-                    )));
-                } else {
-                    self.file_contents.push(Cow::Owned(format!(
-                        "            flat::{}::{variable_name}(_) => Self::{variable_name},",
-                        self.struct_t_name,
-                    )));
-                }
-            }
-
-            self.write_str("        }");
-            self.write_str("    }");
-            self.write_str("}");
-            self.write_str("");
-
-            if impl_type.starts_with('&') {
-                continue;
-            }
-
             self.write_string(format!("impl FromGil<{impl_type}> for Py<{}> {{", self.struct_name));
             self.write_string(format!("    fn from_gil(py: Python, mut flat_t: {impl_type}) -> Self {{"));
-            self.write_string(format!("        Py::new(py, {} {{", self.struct_name));
-
-            if is_box {
-                self.write_str("            item_type: flat_t.as_ref().into(),");
-            } else {
-                self.write_str("            item_type: (&flat_t).into(),");
-            }
+            self.write_str("        Py::new(");
+            self.write_str("            py,");
+            self.write_string(format!("            {} {{", self.struct_name));
 
             for variable_info in &self.types {
                 if variable_info[1].is_empty() {
@@ -491,11 +459,13 @@ impl PythonBindGenerator {
                 let snake_case_name = &variable_info[2];
 
                 self.file_contents.push(Cow::Owned(format!(
-                    "            {snake_case_name}: flat_t.take_{snake_case_name}().map(|x| x.into_gil(py)),",
+                    "                {snake_case_name}: flat_t.take_{snake_case_name}().map(|x| x.into_gil(py)),",
                 )));
             }
 
-            self.write_str("        }).unwrap()");
+            self.write_str("            },");
+            self.write_str("        )");
+            self.write_str("        .unwrap()");
             self.write_str("    }");
             self.write_str("}");
             self.write_str("");
@@ -596,13 +566,12 @@ impl PythonBindGenerator {
                 "    fn from_gil(py: Python, py_type: &Py<{}>) -> Self {{",
                 self.struct_name
             ));
-            self.write_str("        let borrow = py_type.borrow(py);");
 
             let is_box_type = impl_type.contains("Box<");
             if is_box_type {
-                self.write_str("        Self::new(match borrow.item_type {");
+                self.write_str("        Self::new(match py_type.borrow(py).get() {");
             } else {
-                self.write_str("        match borrow.item_type {");
+                self.write_str("        match py_type.borrow(py).get() {");
             }
 
             for variable_info in &self.types {
@@ -611,21 +580,14 @@ impl PythonBindGenerator {
 
                 if variable_value.is_empty() {
                     if is_box_type {
-                        self.file_contents.push(Cow::Owned(format!(
-                            "            {}Type::None => flat::{}::NONE,",
-                            self.struct_name, self.struct_t_name
-                        )));
+                        self.file_contents
+                            .push(Cow::Owned(format!("            None => flat::{}::NONE,", self.struct_t_name)));
                     } else {
-                        self.file_contents.push(Cow::Owned(format!(
-                            "            {}Type::None => Self::NONE,",
-                            self.struct_name
-                        )));
+                        self.file_contents.push(Cow::Borrowed("            None => Self::NONE,"));
                     }
                 } else {
-                    let snake_case_name = &variable_info[2];
-
                     self.file_contents.push(Cow::Owned(format!(
-                        "            {}Type::{variable_value} => flat::{}::{variable_name}(borrow.{snake_case_name}.as_ref().unwrap().into_gil(py)),",
+                        "            Some({}Union::{variable_value}(item)) => flat::{}::{variable_name}((&item).into_gil(py)),",
                         self.struct_name,
                         self.struct_t_name,
                     )));
@@ -838,10 +800,6 @@ impl PythonBindGenerator {
                     "            Some({}Union::{}({wanted_snake_case_name})) => Self {{",
                     self.struct_name, variable_name
                 )));
-                self.file_contents.push(Cow::Owned(format!(
-                    "                item_type: {}Type::{variable_name},",
-                    self.struct_name
-                )));
 
                 for variable_info in &self.types {
                     let variable_type = &variable_info[1];
@@ -870,20 +828,17 @@ impl PythonBindGenerator {
         self.write_str("    }");
         self.write_str("");
         self.write_str("    #[getter(item)]");
-        self.write_str("    pub fn get_item(&mut self, py: Python) -> Option<PyObject> {");
-        self.write_str("        match self.item_type {");
+        self.write_str("    pub fn get_item(&self, py: Python) -> Option<PyObject> {");
+        self.write_str("        match self.get() {");
 
         for variable_info in &self.types {
             let variable_name = &variable_info[0];
 
             if variable_name == "NONE" {
-                self.file_contents
-                    .push(Cow::Owned(format!("            {}Type::None => None,", self.struct_name)));
+                self.file_contents.push(Cow::Borrowed("            None => None,"));
             } else {
-                let wanted_snake_case_name = &variable_info[2];
-
                 self.file_contents.push(Cow::Owned(format!(
-                    "            {}Type::{variable_name} => self.{wanted_snake_case_name}.as_ref().map(|x| x.to_object(py)),",
+                    "            Some({}Union::{variable_name}(item)) => Some(item.to_object(py)),",
                     self.struct_name
                 )));
             }
@@ -904,10 +859,6 @@ impl PythonBindGenerator {
 
             if variable_name == "NONE" {
                 self.file_contents.push(Cow::Borrowed("            None => {"));
-                self.file_contents.push(Cow::Owned(format!(
-                    "                self.item_type = {}Type::None;",
-                    self.struct_name
-                )));
 
                 for variable_info in &self.types {
                     let variable_type = &variable_info[1];
@@ -929,10 +880,6 @@ impl PythonBindGenerator {
                 self.file_contents.push(Cow::Owned(format!(
                     "            Some({}Union::{}({wanted_snake_case_name})) => {{",
                     self.struct_name, variable_name
-                )));
-                self.file_contents.push(Cow::Owned(format!(
-                    "                self.item_type = {}Type::{variable_name};",
-                    self.struct_name
                 )));
 
                 for variable_info in &self.types {
@@ -960,7 +907,6 @@ impl PythonBindGenerator {
 
         self.write_str("        }");
         self.write_str("    }");
-        self.write_str("");
     }
 
     fn generate_enum_new_method(&mut self) {
@@ -1120,7 +1066,7 @@ impl PythonBindGenerator {
 
     fn generate_union_repr_method(&mut self) {
         self.write_str("    pub fn __repr__(&self, py: Python) -> String {");
-        self.write_str("        match self.item_type {");
+        self.write_str("        match self.get() {");
 
         for variable_info in &self.types {
             let variable_name = &variable_info[0];
@@ -1128,27 +1074,14 @@ impl PythonBindGenerator {
 
             if variable_type.is_empty() {
                 self.file_contents.push(Cow::Owned(format!(
-                    "            {}Type::None => String::from(\"{}()\"),",
-                    self.struct_name, self.struct_name
-                )));
-            } else {
-                let snake_case_name = &variable_info[2];
-
-                self.file_contents.push(Cow::Owned(format!(
-                    "            {}Type::{variable_name} => format!(",
+                    "            None => String::from(\"{}()\"),",
                     self.struct_name
                 )));
-                self.file_contents
-                    .push(Cow::Owned(format!("                \"{}({{}})\",", self.struct_name)));
-
-                self.file_contents
-                    .push(Cow::Owned(format!("                self.{snake_case_name}")));
-                self.file_contents.push(Cow::Borrowed("                    .as_ref()"));
-                self.file_contents
-                    .push(Cow::Borrowed("                    .map(|x| x.borrow(py).__repr__(py))"));
-                self.file_contents
-                    .push(Cow::Borrowed("                    .unwrap_or_else(crate::none_str),"));
-                self.file_contents.push(Cow::Borrowed("                ),"));
+            } else {
+                self.file_contents.push(Cow::Owned(format!(
+                    "            Some({}Union::{variable_name}(item)) => format!(\"{}({{}})\", item.borrow(py).__repr__(py)),",
+                    self.struct_name, self.struct_name
+                )));
             }
         }
 
