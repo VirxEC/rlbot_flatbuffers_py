@@ -274,6 +274,8 @@ impl PythonBindGenerator {
                     "Vec<Py<super::{}>>",
                     variable_type.trim_start_matches("Vec<").trim_end_matches("T>")
                 );
+            } else if variable_type.starts_with("Vec<") && variable_type.ends_with('>') {
+                variable_type = String::from("Py<PyBytes>");
             } else if variable_type.starts_with("Box<") && variable_type.ends_with('>') {
                 variable_type = format!(
                     "Py<super::{}>",
@@ -315,8 +317,11 @@ impl PythonBindGenerator {
             let variable_type = &variable_info[1];
 
             if variable_type.starts_with("Vec<") {
-                self.file_contents
-                    .push(Cow::Owned(format!("            {variable_name}: Vec::new(),")));
+                self.file_contents.push(Cow::Owned(if variable_type == "Vec<u8>" {
+                    format!("            {variable_name}: PyBytes::new_bound(py, &[]).unbind(),")
+                } else {
+                    format!("            {variable_name}: Vec::new(),")
+                }));
             } else if variable_type.starts_with("Option<") {
                 self.file_contents
                     .push(Cow::Owned(format!("            {variable_name}: None,")));
@@ -495,19 +500,22 @@ impl PythonBindGenerator {
                 let variable_type = variable_info[1].as_str();
 
                 if variable_type.starts_with("Vec<") {
-                    let inner_type = variable_type.trim_start_matches("Vec<").trim_end_matches('>');
-                    if Self::BASE_TYPES.contains(&inner_type) {
-                        self.file_contents
-                            .push(Cow::Owned(format!("            {variable_name}: flat_t.{variable_name},")));
+                    self.file_contents
+                            .push(Cow::Owned(if variable_type == "Vec<u8>" {
+                        format!("            {variable_name}: PyBytes::new_bound(py, &flat_t.{variable_name}).unbind(),")
                     } else {
-                        self.file_contents.push(Cow::Owned(format!(
+                        format!(
                             "            {variable_name}: flat_t.{variable_name}.into_iter().map(|x| x.into_gil(py)).collect(),",
-                        )));
-                    }
+                        )
+                    }));
                 } else if variable_type.starts_with("Option<") {
-                    self.file_contents.push(Cow::Owned(format!(
-                        "            {variable_name}: flat_t.{variable_name}.map(|x| x.into_gil(py)),",
-                    )));
+                    self.file_contents.push(Cow::Owned(
+                        if variable_type.trim_start_matches("Option<").trim_end_matches('>') == "String" {
+                            format!("            {variable_name}: flat_t.{variable_name},")
+                        } else {
+                            format!("            {variable_name}: flat_t.{variable_name}.map(|x| x.into_gil(py)),")
+                        },
+                    ));
                 } else if variable_type.starts_with("Box<") || variable_type.ends_with('T') {
                     self.file_contents.push(Cow::Owned(format!(
                         "            {variable_name}: flat_t.{variable_name}.into_gil(py),",
@@ -642,19 +650,25 @@ impl PythonBindGenerator {
                     let variable_type = variable_info[1].as_str();
 
                     if variable_type.starts_with("Vec<") {
-                        let inner_type = variable_type.trim_start_matches("Vec<").trim_end_matches('>');
-                        if Self::BASE_TYPES.contains(&inner_type) {
-                            self.file_contents
-                                .push(Cow::Owned(format!("            {variable_name}: py_type.{variable_name},")));
+                        self.file_contents.push(Cow::Owned(if variable_type == "Vec<u8>" {
+                            format!(
+                                "            {variable_name}: py_type.{variable_name}.as_bytes(py).to_vec(),"
+                            )
                         } else {
-                            self.file_contents.push(Cow::Owned(format!(
+                            format!(
                                 "            {variable_name}: py_type.{variable_name}.iter().map(|x| x.into_gil(py)).collect(),",
-                            )));
-                        }
+                            )
+                        }));
                     } else if variable_type.starts_with("Option<") {
-                        self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: py_type.{variable_name}.as_ref().map(|x| x.into_gil(py)),",
-                        )));
+                        self.file_contents.push(Cow::Owned(
+                            if variable_type.trim_start_matches("Option<").trim_end_matches('>') == "String" {
+                                format!("            {variable_name}: py_type.{variable_name}.clone(),")
+                            } else {
+                                format!(
+                                    "            {variable_name}: py_type.{variable_name}.as_ref().map(|x| x.into_gil(py)),"
+                                )
+                            },
+                        ));
                     } else if variable_type == "String" {
                         self.file_contents.push(Cow::Owned(format!(
                             "            {variable_name}: py_type.{variable_name}.clone(),",
@@ -702,19 +716,25 @@ impl PythonBindGenerator {
                     let variable_type = variable_info[1].as_str();
 
                     if variable_type.starts_with("Vec<") {
-                        let inner_type = variable_type.trim_start_matches("Vec<").trim_end_matches('>');
-                        if Self::BASE_TYPES.contains(&inner_type) {
-                            self.file_contents
-                                .push(Cow::Owned(format!("            {variable_name}: borrow.{variable_name},")));
+                        if variable_type == "Vec<u8>" {
+                            self.file_contents.push(Cow::Owned(format!(
+                                "            {variable_name}: borrow.{variable_name}.as_bytes(py).to_vec(),"
+                            )));
                         } else {
                             self.file_contents.push(Cow::Owned(format!(
                                 "            {variable_name}: borrow.{variable_name}.iter().map(|x| x.into_gil(py)).collect(),",
                             )));
                         }
                     } else if variable_type.starts_with("Option<") {
-                        self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: borrow.{variable_name}.as_ref().map(|x| x.into_gil(py)),",
-                        )));
+                        self.file_contents.push(Cow::Owned(
+                            if variable_type.trim_start_matches("Option<").trim_end_matches('>') == "String" {
+                                format!("            {variable_name}: borrow.{variable_name}.clone(),")
+                            } else {
+                                format!(
+                                    "            {variable_name}: borrow.{variable_name}.as_ref().map(|x| x.into_gil(py)),"
+                                )
+                            },
+                        ));
                     } else if variable_type == "String" {
                         self.file_contents.push(Cow::Owned(format!(
                             "            {variable_name}: borrow.{variable_name}.clone(),",
@@ -845,6 +865,8 @@ impl PythonBindGenerator {
                 && (variable_type.starts_with("Box<") || variable_type.ends_with('T'))
             {
                 signature_parts.push(format!("{variable_name}=crate::get_py_default()"));
+            } else if variable_type == "Vec<u8>" {
+                signature_parts.push(format!("{variable_name}=crate::get_empty_pybytes()"));
             } else {
                 signature_parts.push(format!("{variable_name}=Default::default()"));
             }
@@ -866,6 +888,8 @@ impl PythonBindGenerator {
                     "Vec<Py<super::{}>>",
                     variable_type.trim_start_matches("Vec<").trim_end_matches("T>")
                 );
+            } else if variable_type == "Vec<u8>" {
+                variable_type = String::from("Py<PyBytes>");
             } else if variable_type.starts_with("Box<") && variable_type.ends_with('>') {
                 variable_type = format!(
                     "Py<super::{}>",
@@ -978,7 +1002,7 @@ impl PythonBindGenerator {
             return;
         }
 
-        self.write_str("#[allow(unused_variables)]");
+        self.write_str("    #[allow(unused_variables)]");
         self.write_str("    pub fn __repr__(&self, py: Python) -> String {");
         self.write_str("        format!(");
 
@@ -991,6 +1015,8 @@ impl PythonBindGenerator {
 
                 if variable_type == "String" {
                     format!("{variable_name}={{:?}}")
+                } else if variable_type == "Vec<u8>" {
+                    format!("{variable_name}=bytes([{{}}])")
                 } else if variable_type.starts_with("Vec<") {
                     format!("{variable_name}=[{{}}]")
                 } else {
@@ -1015,16 +1041,28 @@ impl PythonBindGenerator {
                 self.file_contents
                     .push(Cow::Owned(format!("            self.{variable_name}")));
                 self.file_contents.push(Cow::Borrowed("                .as_ref()"));
-                self.file_contents
-                    .push(Cow::Borrowed("                .map(|x| x.borrow(py).__repr__(py))"));
+                if Self::BASE_TYPES.into_iter().any(|t| variable_type.contains(t)) {
+                    self.file_contents
+                        .push(Cow::Borrowed("                .map(ToString::to_string)"));
+                } else {
+                    self.file_contents
+                        .push(Cow::Borrowed("                .map(|x| x.borrow(py).__repr__(py))"));
+                }
                 self.file_contents
                     .push(Cow::Borrowed("                .unwrap_or_else(crate::none_str),"));
             } else if variable_type.starts_with("Vec<") {
                 self.file_contents
                     .push(Cow::Owned(format!("            self.{variable_name}")));
-                self.file_contents.push(Cow::Borrowed("                .iter()"));
-                self.file_contents
-                    .push(Cow::Borrowed("                .map(|x| x.borrow(py).__repr__(py))"));
+                if Self::BASE_TYPES.into_iter().any(|t| variable_type.contains(t)) {
+                    self.file_contents.push(Cow::Borrowed("                .as_bytes(py)"));
+                    self.file_contents.push(Cow::Borrowed("                .iter()"));
+                    self.file_contents
+                        .push(Cow::Borrowed("                .map(ToString::to_string)"));
+                } else {
+                    self.file_contents.push(Cow::Borrowed("                .iter()"));
+                    self.file_contents
+                        .push(Cow::Borrowed("                .map(|x| x.borrow(py).__repr__(py))"));
+                }
                 self.file_contents
                     .push(Cow::Borrowed("                .collect::<Vec<String>>()"));
                 self.file_contents.push(Cow::Borrowed("                .join(\", \"),"));
@@ -1196,6 +1234,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
         ("f32", "float"),
         ("String", "str"),
         ("u8", "int"),
+        ("Vec<u8>", "bytes"),
     ];
 
     for (_, type_name, types) in type_data {
@@ -1326,6 +1365,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                         "bool" => Cow::Borrowed("False"),
                         "i32" | "u32" | "f32" | "u8" => Cow::Borrowed("0"),
                         "String" => Cow::Borrowed("\"\""),
+                        "Vec<u8>" => Cow::Borrowed("b\"\""),
                         t => {
                             if t.starts_with("Vec<") {
                                 Cow::Borrowed("[]")

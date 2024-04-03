@@ -35,6 +35,12 @@ if __name__ == "__main__":
     eval(repr(render_type))
     print()
 
+    comm = MatchComm(3, 1, False, "Ready!", b"Hello, world!")
+    print(repr(comm))
+    print(comm)
+    print(comm.content.decode("utf-8"))
+    print()
+
     num_trials = 1_000_000
 
     total_make_time = 0
@@ -44,8 +50,8 @@ if __name__ == "__main__":
         start = time_ns()
         desired_game_state = DesiredGameState(
             DesiredBallState(DesiredPhysics()),
-            car_states=[DesiredCarState(boost_amount=Float(100))],
-            game_info_state=DesiredGameInfoState(game_speed=1, world_gravity_z=Float(-650), end_match=True),
+            car_states=[DesiredCarState(boost_amount=100)],
+            game_info_state=DesiredGameInfoState(game_speed=1, world_gravity_z=-650, end_match=True),
             console_commands=[ConsoleCommand("freeze")],
         )
         total_make_time += time_ns() - start
