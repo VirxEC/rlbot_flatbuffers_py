@@ -1043,7 +1043,7 @@ impl PythonBindGenerator {
                 self.file_contents.push(Cow::Borrowed("                .as_ref()"));
                 if Self::BASE_TYPES.into_iter().any(|t| variable_type.contains(t)) {
                     self.file_contents
-                        .push(Cow::Borrowed("                .map(ToString::to_string)"));
+                        .push(Cow::Borrowed("                .map(|i| format!(\"{i:?}\"))"));
                 } else {
                     self.file_contents
                         .push(Cow::Borrowed("                .map(|x| x.borrow(py).__repr__(py))"));
