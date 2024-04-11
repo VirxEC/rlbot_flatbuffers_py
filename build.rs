@@ -1096,7 +1096,7 @@ impl PythonBindGenerator {
         }
 
         if self.has_complex_pack {
-            self.write_str("        let size = flat_t.get_size();");
+            self.write_str("        let size = flat_t.get_size().next_power_of_two();");
             self.write_str("");
             self.write_str("        let mut builder = FlatBufferBuilder::with_capacity(size);");
             self.write_str("        let offset = flat_t.pack(&mut builder);");
