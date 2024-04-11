@@ -253,7 +253,7 @@ impl PythonBindGenerator {
     }
 
     fn generate_struct_definition(&mut self) {
-        self.write_str("#[pyclass(module = \"rlbot_flatbuffers\", get_all, set_all)]");
+        self.write_str("#[pyclass(module = \"rlbot_flatbuffers\", subclass, get_all, set_all)]");
 
         if self.types.is_empty() {
             self.write_str("#[derive(Debug, Default, Clone)]");

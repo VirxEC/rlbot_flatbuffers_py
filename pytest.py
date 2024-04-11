@@ -2,7 +2,17 @@ from time import time_ns
 
 from rlbot_flatbuffers import *
 
+
+class MyVector(Vector3):
+    def __add__(self, other):
+        return MyVector(self.x + other.x, self.y + other.y, self.z + other.z)
+
+
 if __name__ == "__main__":
+    vec1 = MyVector(1, 2, 3)
+    vec2 = Vector3(4, 5, 6)
+    print(vec1 + vec2)
+
     ready_message = ReadyMessage(True, wants_game_messages=True)
     print(repr(ready_message))
     print(ready_message)
@@ -51,7 +61,9 @@ if __name__ == "__main__":
         desired_game_state = DesiredGameState(
             DesiredBallState(DesiredPhysics()),
             car_states=[DesiredCarState(boost_amount=100)],
-            game_info_state=DesiredGameInfoState(game_speed=1, world_gravity_z=-650, end_match=True),
+            game_info_state=DesiredGameInfoState(
+                game_speed=1, world_gravity_z=-650, end_match=True
+            ),
             console_commands=[ConsoleCommand("freeze")],
         )
         total_make_time += time_ns() - start
