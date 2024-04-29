@@ -48,6 +48,7 @@ if __name__ == "__main__":
     comm = MatchComm(3, 1, False, "Ready!", b"Hello, world!")
     print(repr(comm))
     print(comm)
+    eval(repr(comm))
     print(comm.content.decode("utf-8"))
     print()
 

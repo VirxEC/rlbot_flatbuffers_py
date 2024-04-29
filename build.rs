@@ -1204,10 +1204,11 @@ fn mod_rs_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Res
 }
 
 fn class_names_txt_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result<()> {
-    let class_names = type_data
+    let mut class_names = type_data
         .iter()
         .map(|(_, type_name, _)| format!("    {type_name}"))
         .collect::<Vec<_>>();
+    class_names.sort();
 
     let file_contents = format!("[\n{}\n]", class_names.join(",\n"));
 
