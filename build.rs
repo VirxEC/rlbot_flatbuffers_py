@@ -65,8 +65,9 @@ impl PythonBindGenerator {
         let mut file_contents = vec![];
 
         file_contents.push(Cow::Borrowed(match bind_type {
-            PythonBindType::Struct | PythonBindType::Union => "use crate::{generated::rlbot::flat, FromGil, IntoGil};",
-            PythonBindType::Enum => "use crate::generated::rlbot::flat;",
+            PythonBindType::Struct => "use crate::{flat_err_to_py, generated::rlbot::flat, FromGil, IntoGil};",
+            PythonBindType::Union => "use crate::{generated::rlbot::flat, FromGil, IntoGil};",
+            PythonBindType::Enum => "use crate::{flat_err_to_py, generated::rlbot::flat};",
         }));
 
         if bind_type != PythonBindType::Union {
@@ -82,8 +83,10 @@ impl PythonBindGenerator {
         }
 
         file_contents.push(Cow::Borrowed(match bind_type {
-            PythonBindType::Struct => "use pyo3::{pyclass, pymethods, types::PyBytes, Bound, Py, Python};",
-            PythonBindType::Enum => "use pyo3::{pyclass, pymethods, types::PyBytes, Bound, Python};",
+            PythonBindType::Struct => "use pyo3::{pyclass, pymethods, types::PyBytes, Bound, Py, PyResult, Python};",
+            PythonBindType::Enum => {
+                "use pyo3::{exceptions::PyValueError, pyclass, pymethods, types::PyBytes, Bound, PyResult, Python};"
+            }
             PythonBindType::Union => "use pyo3::{pyclass, pymethods, Py, PyObject, Python, ToPyObject};",
         }));
 
@@ -809,19 +812,20 @@ impl PythonBindGenerator {
         assert!(u8::try_from(self.types.len()).is_ok());
 
         self.write_str("    #[pyo3(signature = (value=Default::default()))]");
-        self.write_str("    pub fn new(value: u8) -> Self {");
+        self.write_str("    pub fn new(value: u8) -> PyResult<Self> {");
         self.write_str("        match value {");
 
         for variable_info in &self.types {
             let variable_name = &variable_info[0];
             let variable_value = &variable_info[1];
 
-            self.file_contents
-                .push(Cow::Owned(format!("            {variable_value} => Self::{variable_name},")));
+            self.file_contents.push(Cow::Owned(format!(
+                "            {variable_value} => Ok(Self::{variable_name}),"
+            )));
         }
 
         if self.types.len() != usize::from(u8::MAX) {
-            self.write_str("            v => panic!(\"Unknown value: {v}\"),");
+            self.write_str("            v => Err(PyValueError::new_err(format!(\"Unknown value of {v}\"))),");
         }
 
         self.write_str("        }");
@@ -1118,14 +1122,17 @@ impl PythonBindGenerator {
         self.write_str("    #[staticmethod]");
 
         if self.bind_type == PythonBindType::Enum {
-            self.write_str("    fn unpack(data: &[u8]) -> Self {");
-            self.write_string(format!("        root::<flat::{}>(data).unwrap().into()", self.struct_name));
+            self.write_str("    fn unpack(data: &[u8]) -> PyResult<Self> {");
+            self.write_string(format!("        match root::<flat::{}>(data) {{", self.struct_name));
+            self.write_str("            Ok(flat_t) => Ok(flat_t.into()),");
+            self.write_str("            Err(e) => Err(flat_err_to_py(e)),");
+            self.write_str("        }");
         } else {
-            self.write_str("    fn unpack(py: Python, data: &[u8]) -> Py<Self> {");
-            self.write_string(format!(
-                "        root::<flat::{}>(data).unwrap().unpack().into_gil(py)",
-                self.struct_name
-            ));
+            self.write_str("    fn unpack(py: Python, data: &[u8]) -> PyResult<Py<Self>> {");
+            self.write_string(format!("        match root::<flat::{}>(data) {{", self.struct_name));
+            self.write_str("            Ok(flat_t) => Ok(flat_t.unpack().into_gil(py)),");
+            self.write_str("            Err(e) => Err(flat_err_to_py(e)),");
+            self.write_str("        }");
         }
 
         self.write_str("    }");
@@ -1225,6 +1232,8 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
         Cow::Borrowed(""),
         Cow::Borrowed("__doc__: str"),
         Cow::Borrowed("__version__: str"),
+        Cow::Borrowed(""),
+        Cow::Borrowed("class InvalidFlatbuffer(ValueError): ..."),
         Cow::Borrowed(""),
     ];
 
@@ -1347,7 +1356,10 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
             file_contents.push(Cow::Borrowed(""));
 
             if is_enum {
-                file_contents.push(Cow::Borrowed("    def __init__(self, value: int = 0): ..."));
+                file_contents.push(Cow::Borrowed("    def __init__(self, value: int = 0):"));
+                file_contents.push(Cow::Borrowed("        \"\"\""));
+                file_contents.push(Cow::Borrowed("        :raises ValueError: If the `value` is not a valid enum value"));
+                file_contents.push(Cow::Borrowed("        \"\"\""));
             } else {
                 file_contents.push(Cow::Borrowed("    def __init__("));
                 file_contents.push(Cow::Borrowed("        self,"));
@@ -1404,7 +1416,12 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
         if !is_union {
             file_contents.push(Cow::Borrowed("    def pack(self) -> bytes: ..."));
             file_contents.push(Cow::Borrowed("    @staticmethod"));
-            file_contents.push(Cow::Owned(format!("    def unpack(data: bytes) -> {type_name}: ...")));
+            file_contents.push(Cow::Owned(format!("    def unpack(data: bytes) -> {type_name}:")));
+            file_contents.push(Cow::Borrowed("        \"\"\""));
+            file_contents.push(Cow::Borrowed(
+                "        :raises InvalidFlatbuffer: If the `data` is invalid for this type",
+            ));
+            file_contents.push(Cow::Borrowed("        \"\"\""));
         }
 
         file_contents.push(Cow::Borrowed(""));

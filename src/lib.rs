@@ -12,8 +12,18 @@ pub mod generated;
 #[allow(clippy::enum_variant_names)]
 mod python;
 
-use pyo3::{prelude::*, types::PyBytes, PyClass};
+use pyo3::{create_exception, exceptions::PyValueError, prelude::*, types::PyBytes, PyClass};
 use python::*;
+use std::panic::Location;
+
+create_exception!(rlbot_flatbuffers, InvalidFlatbuffer, PyValueError, "Invalid FlatBuffer");
+
+#[track_caller]
+pub fn flat_err_to_py(err: flatbuffers::InvalidFlatbuffer) -> PyErr {
+    let caller = Location::caller();
+    let err_msg = format!("Can't make flatbuffer @ \"rlbot_flatbuffers/{}\":\n  {err}", caller.file());
+    InvalidFlatbuffer::new_err(err_msg)
+}
 
 pub trait FromGil<T> {
     fn from_gil(py: Python, obj: T) -> Self;
@@ -108,13 +118,14 @@ impl FromGil<Bools> for Py<Bool> {
 }
 
 macro_rules! pynamedmodule {
-    (doc: $doc:literal, name: $name:tt, classes: [$($class_name:ident),*], vars: [$(($var_name:literal, $value:expr)),*]) => {
+    (doc: $doc:literal, name: $name:tt, classes: [$($class_name:ident),*], vars: [$(($var_name:literal, $value:expr)),*], exceptions: [$($except:expr),*]) => {
         #[doc = $doc]
         #[pymodule]
         #[allow(redundant_semicolons)]
-        fn $name(m: Bound<PyModule>) -> PyResult<()> {
+        fn $name(py: Python, m: Bound<PyModule>) -> PyResult<()> {
             $(m.add_class::<$class_name>()?);*;
             $(m.add($var_name, $value)?);*;
+            $(m.add(stringify!($except), py.get_type_bound::<$except>())?);*;
             Ok(())
         }
     };
@@ -213,5 +224,8 @@ pynamedmodule! {
     ],
     vars: [
         ("__version__", env!("CARGO_PKG_VERSION"))
+    ],
+    exceptions: [
+        InvalidFlatbuffer
     ]
 }

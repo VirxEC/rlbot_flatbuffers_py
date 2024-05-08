@@ -24,7 +24,7 @@ if __name__ == "__main__":
     )
     dgs.game_info_state.world_gravity_z = Float(-650)
     dgs.game_info_state.end_match.val = True
-    dgs.console_commands = [ConsoleCommand("freeze")]
+    dgs.console_commands = [ConsoleCommand("dump_items")]
     dgs.ball_state = DesiredBallState()
 
     print(repr(dgs))
@@ -52,7 +52,22 @@ if __name__ == "__main__":
     print(comm.content.decode("utf-8"))
     print()
 
-    num_trials = 1_000_000
+    try:
+        AirState(8)
+    except ValueError as e:
+        print(e)
+    print()
+
+    invalid_data = comm.pack()
+
+    try:
+        RenderMessage.unpack(invalid_data)
+    except InvalidFlatbuffer as e:
+        print(e)
+
+    print("Running quick benchmark...")
+
+    num_trials = 100_000
 
     total_make_time = 0
     total_pack_time = 0
@@ -60,12 +75,30 @@ if __name__ == "__main__":
     for _ in range(num_trials):
         start = time_ns()
         desired_game_state = DesiredGameState(
-            DesiredBallState(DesiredPhysics()),
-            car_states=[DesiredCarState(boost_amount=100)],
+            DesiredBallState(
+                DesiredPhysics(
+                    Vector3Partial(0, 0, 0),
+                    RotatorPartial(0, 0, 0),
+                    Vector3Partial(0, 0, 0),
+                    Vector3Partial(0, 0, 0),
+                )
+            ),
+            car_states=[
+                DesiredCarState(
+                    DesiredPhysics(
+                        Vector3Partial(0, 0, 0),
+                        RotatorPartial(0, 0, 0),
+                        Vector3Partial(0, 0, 0),
+                        Vector3Partial(0, 0, 0),
+                    ),
+                    100,
+                )
+                for _ in range(8)
+            ],
             game_info_state=DesiredGameInfoState(
                 game_speed=1, world_gravity_z=-650, end_match=True
             ),
-            console_commands=[ConsoleCommand("freeze")],
+            console_commands=[ConsoleCommand("dump_items")],
         )
         total_make_time += time_ns() - start
 
