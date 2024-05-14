@@ -1138,6 +1138,12 @@ impl PythonBindGenerator {
         self.write_str("    }");
     }
 
+    fn generate_enum_hash_method(&mut self) {
+        self.write_str("    pub fn __hash__(&self) -> u64 {");
+        self.write_str("        crate::hash_u64(*self as u64)");
+        self.write_str("    }");
+    }
+
     fn generate_py_methods(&mut self) {
         self.write_str("#[pymethods]");
         self.write_string(format!("impl {} {{", self.struct_name));
@@ -1147,6 +1153,11 @@ impl PythonBindGenerator {
         self.generate_str_method();
         self.write_str("");
         self.generate_repr_method();
+
+        if self.bind_type == PythonBindType::Enum {
+            self.write_str("");
+            self.generate_enum_hash_method();
+        }
 
         if self.bind_type != PythonBindType::Union {
             self.write_str("");
@@ -1358,7 +1369,9 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
             if is_enum {
                 file_contents.push(Cow::Borrowed("    def __init__(self, value: int = 0):"));
                 file_contents.push(Cow::Borrowed("        \"\"\""));
-                file_contents.push(Cow::Borrowed("        :raises ValueError: If the `value` is not a valid enum value"));
+                file_contents.push(Cow::Borrowed(
+                    "        :raises ValueError: If the `value` is not a valid enum value",
+                ));
                 file_contents.push(Cow::Borrowed("        \"\"\""));
             } else {
                 file_contents.push(Cow::Borrowed("    def __init__("));
@@ -1405,6 +1418,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
 
         file_contents.push(Cow::Borrowed("    def __str__(self) -> str: ..."));
         file_contents.push(Cow::Borrowed("    def __repr__(self) -> str: ..."));
+        file_contents.push(Cow::Borrowed("    def __hash__(self) -> str: ..."));
 
         if is_enum {
             file_contents.push(Cow::Borrowed("    def __int__(self) -> int: ..."));

@@ -14,7 +14,10 @@ mod python;
 
 use pyo3::{create_exception, exceptions::PyValueError, prelude::*, types::PyBytes, PyClass};
 use python::*;
-use std::panic::Location;
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    panic::Location,
+};
 
 create_exception!(rlbot_flatbuffers, InvalidFlatbuffer, PyValueError, "Invalid FlatBuffer");
 
@@ -23,6 +26,12 @@ pub fn flat_err_to_py(err: flatbuffers::InvalidFlatbuffer) -> PyErr {
     let caller = Location::caller();
     let err_msg = format!("Can't make flatbuffer @ \"rlbot_flatbuffers/{}\":\n  {err}", caller.file());
     InvalidFlatbuffer::new_err(err_msg)
+}
+
+pub fn hash_u64(num: u64) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    num.hash(&mut hasher);
+    hasher.finish()
 }
 
 pub trait FromGil<T> {

@@ -14,6 +14,7 @@ if __name__ == "__main__":
     print(vec1 + vec2)
 
     ready_message = ReadyMessage(True, wants_game_messages=True)
+    print(hash(ready_message))
     print(repr(ready_message))
     print(ready_message)
     eval(repr(ready_message))
@@ -27,6 +28,7 @@ if __name__ == "__main__":
     dgs.console_commands = [ConsoleCommand("dump_items")]
     dgs.ball_state = DesiredBallState()
 
+    print(hash(dgs))
     print(repr(dgs))
     print(dgs)
     eval(repr(dgs))
@@ -40,17 +42,21 @@ if __name__ == "__main__":
     else:
         raise ValueError("Expected Line3D")
 
+    print(hash(render_type))
     print(repr(render_type))
     print(render_type)
     eval(repr(render_type))
     print()
 
     comm = MatchComm(3, 1, False, "Ready!", b"Hello, world!")
+    print(hash(comm))
     print(repr(comm))
     print(comm)
     eval(repr(comm))
     print(comm.content.decode("utf-8"))
     print()
+
+    print(hash(AirState.Dodging))
 
     try:
         AirState(8)
