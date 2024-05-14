@@ -1364,16 +1364,18 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                 }
             }
 
-            file_contents.push(Cow::Borrowed(""));
-
-            if is_enum {
+            if types.is_empty() {
+                file_contents.push(Cow::Borrowed("    def __init__(self): ..."));
+            } else if is_enum {
+                file_contents.push(Cow::Borrowed(""));
                 file_contents.push(Cow::Borrowed("    def __init__(self, value: int = 0):"));
                 file_contents.push(Cow::Borrowed("        \"\"\""));
                 file_contents.push(Cow::Borrowed(
                     "        :raises ValueError: If the `value` is not a valid enum value",
                 ));
-                file_contents.push(Cow::Borrowed("        \"\"\""));
+                file_contents.push(Cow::Borrowed("        \"\"\"\n"));
             } else {
+                file_contents.push(Cow::Borrowed(""));
                 file_contents.push(Cow::Borrowed("    def __init__("));
                 file_contents.push(Cow::Borrowed("        self,"));
 
@@ -1407,7 +1409,7 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                     };
 
                     let python_type = &python_types[i];
-                    file_contents.push(Cow::Owned(format!("        {variable_name}: {python_type}={default_value},")));
+                    file_contents.push(Cow::Owned(format!("        {variable_name}: {python_type} = {default_value},")));
 
                     i += 1;
                 }
