@@ -329,7 +329,7 @@ dependencies = [
 
 [[package]]
 name = "rlbot-flatbuffers-py"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "flatbuffers",
  "get-size",
