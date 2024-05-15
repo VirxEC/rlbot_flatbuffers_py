@@ -6,7 +6,7 @@ description = "A Python module implemented in Rust for serializing and deseriali
 repository = "https://github.com/VirxEC/rlbot_flatbuffers_py"
 license = "MIT"
 readme = "README.md"
-exclude = [".github", "pytest.py", "rustfmt.toml", ".gitignore", ".gitmodules"]
+exclude = [".github", "pytest.py", "rustfmt.toml", ".gitignore", ".gitmodules", "flatc_mac"]
 publish = false
 
 [lints.clippy]
