@@ -1085,7 +1085,7 @@ impl PythonBindGenerator {
 
     fn generate_enum_hash_method(&mut self) {
         self.write_str("    pub fn __hash__(&self) -> u64 {");
-        self.write_str("        crate::hash_u64(*self as u64)");
+        self.write_str("        crate::hash_u8(*self as u8)");
         self.write_str("    }");
     }
 

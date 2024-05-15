@@ -28,7 +28,7 @@ pub fn flat_err_to_py(err: flatbuffers::InvalidFlatbuffer) -> PyErr {
     InvalidFlatbuffer::new_err(err_msg)
 }
 
-pub fn hash_u64(num: u64) -> u64 {
+pub fn hash_u8(num: u8) -> u64 {
     let mut hasher = DefaultHasher::new();
     num.hash(&mut hasher);
     hasher.finish()
