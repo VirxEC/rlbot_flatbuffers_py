@@ -56,6 +56,8 @@ All values are optional when creating a class and have the proper defaults.
 #### Reading values
 
 ```python
+import rlbot_flatbuffers as flat
+
 def handle_packet(packet: flat.GameTickPacket):
     if packet.game_info.game_state_type not in {
         flat.GameStateType.Active,
