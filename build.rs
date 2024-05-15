@@ -416,39 +416,40 @@ impl PythonBindGenerator {
         for impl_type in from_impl_types {
             self.write_string(format!("impl FromGil<{impl_type}> for Py<{}> {{", self.struct_name));
             self.write_string(format!("    fn from_gil(py: Python, flat_t: {impl_type}) -> Self {{"));
-            self.write_str("        Py::new(");
-            self.write_str("            py,");
 
             if impl_type.starts_with("Box<") {
-                self.write_str("            match *flat_t {");
+                self.write_str("        Self::from_gil(py, *flat_t)");
             } else {
+                self.write_str("        Py::new(");
+                self.write_str("            py,");
                 self.write_str("            match flat_t {");
-            }
 
-            for variable_info in &self.types {
-                let variable_name = &variable_info[0];
+                for variable_info in &self.types {
+                    let variable_name = &variable_info[0];
 
-                if variable_name == "NONE" {
-                    self.file_contents.push(Cow::Owned(format!(
-                        "                flat::{}::NONE => {}::default(),",
-                        self.struct_t_name, self.struct_name
-                    )));
-                } else {
-                    self.file_contents.push(Cow::Owned(format!(
-                        "                flat::{}::{variable_name}(item) => {} {{",
-                        self.struct_t_name, self.struct_name,
-                    )));
-                    self.file_contents.push(Cow::Owned(format!(
-                        "                    item: Some({}Union::{variable_name}(item.into_gil(py)))",
-                        self.struct_name,
-                    )));
-                    self.file_contents.push(Cow::Borrowed("                },"));
+                    if variable_name == "NONE" {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "                flat::{}::NONE => {}::default(),",
+                            self.struct_t_name, self.struct_name
+                        )));
+                    } else {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "                flat::{}::{variable_name}(item) => {} {{",
+                            self.struct_t_name, self.struct_name,
+                        )));
+                        self.file_contents.push(Cow::Owned(format!(
+                            "                    item: Some({}Union::{variable_name}(item.into_gil(py)))",
+                            self.struct_name,
+                        )));
+                        self.file_contents.push(Cow::Borrowed("                },"));
+                    }
                 }
+
+                self.write_str("            },");
+                self.write_str("        )");
+                self.write_str("        .unwrap()");
             }
 
-            self.write_str("            },");
-            self.write_str("        )");
-            self.write_str("        .unwrap()");
             self.write_str("    }");
             self.write_str("}");
             self.write_str("");
@@ -496,44 +497,50 @@ impl PythonBindGenerator {
             }
 
             self.write_string(format!("    fn from_gil(py: Python, flat_t: {impl_type}) -> Self {{"));
-            self.write_string(format!("        Py::new(py, {} {{", self.struct_name));
 
-            for variable_info in &self.types {
-                let variable_name = &variable_info[0];
-                let variable_type = variable_info[1].as_str();
+            if impl_type.starts_with("Box<") {
+                self.write_str("        Self::from_gil(py, *flat_t)");
+            } else {
+                self.write_string(format!("        Py::new(py, {} {{", self.struct_name));
 
-                if variable_type.starts_with("Vec<") {
-                    self.file_contents
-                            .push(Cow::Owned(if variable_type == "Vec<u8>" {
-                        format!("            {variable_name}: PyBytes::new_bound(py, &flat_t.{variable_name}).unbind(),")
-                    } else {
-                        format!(
-                            "            {variable_name}: flat_t.{variable_name}.into_iter().map(|x| x.into_gil(py)).collect(),",
-                        )
-                    }));
-                } else if variable_type.starts_with("Option<") {
-                    self.file_contents.push(Cow::Owned(
-                        if variable_type.trim_start_matches("Option<").trim_end_matches('>') == "String" {
-                            format!("            {variable_name}: flat_t.{variable_name},")
+                for variable_info in &self.types {
+                    let variable_name = &variable_info[0];
+                    let variable_type = variable_info[1].as_str();
+
+                    if variable_type.starts_with("Vec<") {
+                        self.file_contents
+                                .push(Cow::Owned(if variable_type == "Vec<u8>" {
+                            format!("            {variable_name}: PyBytes::new_bound(py, &flat_t.{variable_name}).unbind(),")
                         } else {
-                            format!("            {variable_name}: flat_t.{variable_name}.map(|x| x.into_gil(py)),")
-                        },
-                    ));
-                } else if variable_type.starts_with("Box<") || variable_type.ends_with('T') {
-                    self.file_contents.push(Cow::Owned(format!(
-                        "            {variable_name}: flat_t.{variable_name}.into_gil(py),",
-                    )));
-                } else if Self::BASE_TYPES.contains(&variable_type) {
-                    self.file_contents
-                        .push(Cow::Owned(format!("            {variable_name}: flat_t.{variable_name},")));
-                } else {
-                    self.file_contents.push(Cow::Owned(format!(
-                        "            {variable_name}: flat_t.{variable_name}.into(),",
-                    )));
+                            format!(
+                                "            {variable_name}: flat_t.{variable_name}.into_iter().map(|x| x.into_gil(py)).collect(),",
+                            )
+                        }));
+                    } else if variable_type.starts_with("Option<") {
+                        self.file_contents.push(Cow::Owned(
+                            if variable_type.trim_start_matches("Option<").trim_end_matches('>') == "String" {
+                                format!("            {variable_name}: flat_t.{variable_name},")
+                            } else {
+                                format!("            {variable_name}: flat_t.{variable_name}.map(|x| x.into_gil(py)),")
+                            },
+                        ));
+                    } else if variable_type.starts_with("Box<") || variable_type.ends_with('T') {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "            {variable_name}: flat_t.{variable_name}.into_gil(py),",
+                        )));
+                    } else if Self::BASE_TYPES.contains(&variable_type) {
+                        self.file_contents
+                            .push(Cow::Owned(format!("            {variable_name}: flat_t.{variable_name},")));
+                    } else {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "            {variable_name}: flat_t.{variable_name}.into(),",
+                        )));
+                    }
                 }
+
+                self.write_str("        }).unwrap()");
             }
 
-            self.write_str("        }).unwrap()");
             self.write_str("    }");
             self.write_str("}");
             self.write_str("");
@@ -553,35 +560,27 @@ impl PythonBindGenerator {
                 self.struct_name
             ));
 
-            let is_box_type = impl_type.contains("Box<");
-            if is_box_type {
-                self.write_str("        Self::new(match py_type.borrow(py).item.as_ref() {");
+            if impl_type.contains("Box<") {
+                self.write_string(format!(
+                    "        Self::new(flat::{}::from_gil(py, py_type))",
+                    self.struct_t_name
+                ));
             } else {
                 self.write_str("        match py_type.borrow(py).item.as_ref() {");
-            }
+                for variable_info in &self.types {
+                    let variable_name = &variable_info[0];
+                    let variable_value = &variable_info[1];
 
-            for variable_info in &self.types {
-                let variable_name = &variable_info[0];
-                let variable_value = &variable_info[1];
-
-                if variable_value.is_empty() {
-                    if is_box_type {
-                        self.file_contents
-                            .push(Cow::Owned(format!("            None => flat::{}::NONE,", self.struct_t_name)));
-                    } else {
+                    if variable_value.is_empty() {
                         self.file_contents.push(Cow::Borrowed("            None => Self::NONE,"));
+                    } else {
+                        self.file_contents.push(Cow::Owned(format!(
+                            "            Some({}Union::{variable_value}(item)) => flat::{}::{variable_name}(item.into_gil(py)),",
+                            self.struct_name, self.struct_t_name
+                        )));
                     }
-                } else {
-                    self.file_contents.push(Cow::Owned(format!(
-                        "            Some({}Union::{variable_value}(item)) => flat::{}::{variable_name}(item.into_gil(py)),",
-                        self.struct_name, self.struct_t_name
-                    )));
                 }
-            }
 
-            if is_box_type {
-                self.write_str("        })");
-            } else {
                 self.write_str("        }");
             }
 
@@ -626,76 +625,68 @@ impl PythonBindGenerator {
             format!("Box<flat::{}>", self.struct_t_name),
         ];
 
-        for impl_type in from_impl_types {
-            let is_box_type = impl_type.contains("Box<");
+        self.write_string(format!(
+            "impl FromGil<&{}> for flat::{} {{",
+            self.struct_name, self.struct_t_name
+        ));
 
-            if !is_box_type {
-                self.write_string(format!("impl FromGil<&{}> for {impl_type} {{", self.struct_name));
+        if self.types.is_empty() {
+            self.write_string(format!("    fn from_gil(_: Python, _: &{}) -> Self {{", self.struct_name));
+            self.write_str("        Self::default()");
+        } else {
+            self.write_str("    #[allow(unused_variables)]");
+            self.write_string(format!(
+                "    fn from_gil(py: Python, py_type: &{}) -> Self {{",
+                self.struct_name
+            ));
+            self.write_str("        Self {");
 
-                if self.types.is_empty() {
-                    self.write_string(format!("    fn from_gil(_: Python, _: &{}) -> Self {{", self.struct_name));
-                    self.write_str("        Self::default()");
-                    self.write_str("    }");
-                    self.write_str("}");
-                    self.write_str("");
-                    continue;
-                }
+            for variable_info in &self.types {
+                let variable_name = &variable_info[0];
+                let variable_type = variable_info[1].as_str();
 
-                self.write_str("    #[allow(unused_variables)]");
-                self.write_string(format!(
-                    "    fn from_gil(py: Python, py_type: &{}) -> Self {{",
-                    self.struct_name
-                ));
-                self.write_str("        Self {");
-
-                for variable_info in &self.types {
-                    let variable_name = &variable_info[0];
-                    let variable_type = variable_info[1].as_str();
-
-                    if variable_type.starts_with("Vec<") {
-                        self.file_contents.push(Cow::Owned(if variable_type == "Vec<u8>" {
-                            format!(
-                                "            {variable_name}: py_type.{variable_name}.as_bytes(py).to_vec(),"
-                            )
-                        } else {
-                            format!(
-                                "            {variable_name}: py_type.{variable_name}.iter().map(|x| x.into_gil(py)).collect(),",
-                            )
-                        }));
-                    } else if variable_type.starts_with("Option<") {
-                        self.file_contents.push(Cow::Owned(
-                            if variable_type.trim_start_matches("Option<").trim_end_matches('>') == "String" {
-                                format!("            {variable_name}: py_type.{variable_name}.clone(),")
-                            } else {
-                                format!(
-                                    "            {variable_name}: py_type.{variable_name}.as_ref().map(|x| x.into_gil(py)),"
-                                )
-                            },
-                        ));
-                    } else if variable_type == "String" {
-                        self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: py_type.{variable_name}.clone(),",
-                        )));
-                    } else if variable_type.ends_with('T') || variable_type.starts_with("Box<") {
-                        self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: (&py_type.{variable_name}).into_gil(py),",
-                        )));
-                    } else if Self::BASE_TYPES.contains(&variable_type) {
-                        self.file_contents
-                            .push(Cow::Owned(format!("            {variable_name}: py_type.{variable_name},")));
+                if variable_type.starts_with("Vec<") {
+                    self.file_contents.push(Cow::Owned(if variable_type == "Vec<u8>" {
+                        format!("            {variable_name}: py_type.{variable_name}.as_bytes(py).to_vec(),")
                     } else {
-                        self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: (&py_type.{variable_name}).into(),",
-                        )));
-                    }
+                        format!(
+                            "            {variable_name}: py_type.{variable_name}.iter().map(|x| x.into_gil(py)).collect(),",
+                        )
+                    }));
+                } else if variable_type.starts_with("Option<") {
+                    self.file_contents.push(Cow::Owned(
+                        if variable_type.trim_start_matches("Option<").trim_end_matches('>') == "String" {
+                            format!("            {variable_name}: py_type.{variable_name}.clone(),")
+                        } else {
+                            format!("            {variable_name}: py_type.{variable_name}.as_ref().map(|x| x.into_gil(py)),")
+                        },
+                    ));
+                } else if variable_type == "String" {
+                    self.file_contents.push(Cow::Owned(format!(
+                        "            {variable_name}: py_type.{variable_name}.clone(),",
+                    )));
+                } else if variable_type.ends_with('T') || variable_type.starts_with("Box<") {
+                    self.file_contents.push(Cow::Owned(format!(
+                        "            {variable_name}: (&py_type.{variable_name}).into_gil(py),",
+                    )));
+                } else if Self::BASE_TYPES.contains(&variable_type) {
+                    self.file_contents
+                        .push(Cow::Owned(format!("            {variable_name}: py_type.{variable_name},")));
+                } else {
+                    self.file_contents.push(Cow::Owned(format!(
+                        "            {variable_name}: (&py_type.{variable_name}).into(),",
+                    )));
                 }
-
-                self.write_str("        }");
-                self.write_str("    }");
-                self.write_str("}");
-                self.write_str("");
             }
 
+            self.write_str("        }");
+        }
+
+        self.write_str("    }");
+        self.write_str("}");
+        self.write_str("");
+
+        for impl_type in from_impl_types {
             self.write_string(format!("impl FromGil<&Py<{}>> for {impl_type} {{", self.struct_name));
 
             if self.types.is_empty() {
@@ -706,60 +697,14 @@ impl PythonBindGenerator {
                     "    fn from_gil(py: Python, py_type: &Py<{}>) -> Self {{",
                     self.struct_name
                 ));
-                self.write_str("        let borrow = py_type.borrow(py);");
 
-                if is_box_type {
-                    self.write_string(format!("        Self::new(flat::{} {{", self.struct_t_name));
+                if impl_type.contains("Box<") {
+                    self.write_string(format!(
+                        "        Self::new(flat::{}::from_gil(py, py_type))",
+                        self.struct_t_name
+                    ));
                 } else {
-                    self.write_str("        Self {");
-                }
-
-                for variable_info in &self.types {
-                    let variable_name = &variable_info[0];
-                    let variable_type = variable_info[1].as_str();
-
-                    if variable_type.starts_with("Vec<") {
-                        if variable_type == "Vec<u8>" {
-                            self.file_contents.push(Cow::Owned(format!(
-                                "            {variable_name}: borrow.{variable_name}.as_bytes(py).to_vec(),"
-                            )));
-                        } else {
-                            self.file_contents.push(Cow::Owned(format!(
-                                "            {variable_name}: borrow.{variable_name}.iter().map(|x| x.into_gil(py)).collect(),",
-                            )));
-                        }
-                    } else if variable_type.starts_with("Option<") {
-                        self.file_contents.push(Cow::Owned(
-                            if variable_type.trim_start_matches("Option<").trim_end_matches('>') == "String" {
-                                format!("            {variable_name}: borrow.{variable_name}.clone(),")
-                            } else {
-                                format!(
-                                    "            {variable_name}: borrow.{variable_name}.as_ref().map(|x| x.into_gil(py)),"
-                                )
-                            },
-                        ));
-                    } else if variable_type == "String" {
-                        self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: borrow.{variable_name}.clone(),",
-                        )));
-                    } else if variable_type.ends_with('T') || variable_type.starts_with("Box<") {
-                        self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: (&borrow.{variable_name}).into_gil(py),",
-                        )));
-                    } else if Self::BASE_TYPES.contains(&variable_type) {
-                        self.file_contents
-                            .push(Cow::Owned(format!("            {variable_name}: borrow.{variable_name},")));
-                    } else {
-                        self.file_contents.push(Cow::Owned(format!(
-                            "            {variable_name}: (&borrow.{variable_name}).into(),",
-                        )));
-                    }
-                }
-
-                if is_box_type {
-                    self.write_str("        })");
-                } else {
-                    self.write_str("        }");
+                    self.write_str("        Self::from_gil(py, &*py_type.borrow(py))");
                 }
             }
 
@@ -1409,7 +1354,9 @@ fn pyi_generator(type_data: &[(String, String, Vec<Vec<String>>)]) -> io::Result
                     };
 
                     let python_type = &python_types[i];
-                    file_contents.push(Cow::Owned(format!("        {variable_name}: {python_type} = {default_value},")));
+                    file_contents.push(Cow::Owned(format!(
+                        "        {variable_name}: {python_type} = {default_value},"
+                    )));
 
                     i += 1;
                 }
