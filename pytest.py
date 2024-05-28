@@ -1,3 +1,4 @@
+from random import randrange
 from time import time_ns
 
 from rlbot_flatbuffers import *
@@ -6,6 +7,31 @@ from rlbot_flatbuffers import *
 class MyVector(Vector3):
     def __add__(self, other):
         return MyVector(self.x + other.x, self.y + other.y, self.z + other.z)
+
+
+def random_string():
+    return "".join(chr(randrange(32, 127)) for _ in range(64))
+
+
+def random_player_config():
+    return PlayerConfiguration(
+        variety=PlayerClass(Psyonix(1.)),
+        name=random_string(),
+        location=random_string(),
+        run_command=random_string(),
+        loadout=PlayerLoadout(
+            loadout_paint=LoadoutPaint(),
+            primary_color_lookup=Color(),
+            secondary_color_lookup=Color(),
+        )
+    )
+
+
+def random_script_config():
+    return ScriptConfiguration(
+        location=random_string(),
+        run_command=random_string(),
+    )
 
 
 if __name__ == "__main__":
@@ -70,6 +96,26 @@ if __name__ == "__main__":
         RenderMessage.unpack(invalid_data)
     except InvalidFlatbuffer as e:
         print(e)
+
+    match_settings = MatchSettings(
+        game_path=random_string(),
+        game_map_upk=random_string(),
+        player_configurations=[random_player_config() for _ in range(128)],
+        script_configurations = [random_script_config() for _ in range(8)],
+        mutator_settings=MutatorSettings()
+    )
+
+    data = match_settings.pack()
+    print(f"MatchSettings size: {len(data)} bytes")
+
+    renderPolyLine = RenderMessage(RenderType(PolyLine3D(
+        [Vector3() for _ in range(2048)],
+    )))
+
+    data = renderPolyLine.pack()
+    print(f"RenderMessage size: {len(data)} bytes")
+
+    print()
 
     print("Running quick benchmark...")
 
