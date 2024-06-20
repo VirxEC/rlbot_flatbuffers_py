@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     print(repr(RenderType()))
 
-    render_type = RenderType(Line3D(Vector3(0, 0, 0), Vector3(1, 1, 1), Color(255)))
+    render_type = RenderType(Line3D(MyVector(0, 0, 0), Vector3(1, 1, 1), Color(255)))
     if isinstance(render_type.item, Line3D):
         render_type.item.color.a = 150
     else:
@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
     print("Running quick benchmark...")
 
-    num_trials = 100_000
+    num_trials = 60_000
 
     total_make_time = 0
     total_pack_time = 0
@@ -145,7 +145,7 @@ if __name__ == "__main__":
                     ),
                     100,
                 )
-                for _ in range(8)
+                for _ in range(16)
             ],
             game_info_state=DesiredGameInfoState(
                 game_speed=1, world_gravity_z=-650, end_match=True
@@ -162,8 +162,8 @@ if __name__ == "__main__":
         DesiredGameState.unpack(packed_bytes)
         total_unpack_time += time_ns() - start
 
-    print(f"Average time to make: {round(total_make_time / num_trials, 2)}ns")
-    print(f"Average time to pack: {round(total_pack_time / num_trials, 2)}ns")
-    print(f"Average time to unpack: {round(total_unpack_time / num_trials, 2)}ns")
+    print(f"Average time to make: {total_make_time / num_trials / 1_000:.2f}us")
+    print(f"Average time to pack: {total_pack_time / num_trials / 1_000:.2f}us")
+    print(f"Average time to unpack: {total_unpack_time / num_trials / 1_000:.2f}us")
 
-    print(f"Total time: {round((total_pack_time + total_unpack_time) / 1000000, 2)}ms")
+    print(f"Total time: {(total_pack_time + total_unpack_time) / 1_000_000_000:.3f}s")

@@ -9,7 +9,7 @@
 )]
 pub mod generated;
 
-#[allow(clippy::enum_variant_names)]
+#[allow(clippy::enum_variant_names, unused_imports)]
 mod python;
 
 use pyo3::{create_exception, exceptions::PyValueError, prelude::*, types::PyBytes, PyClass};
@@ -38,6 +38,16 @@ pub trait FromGil<T> {
     fn from_gil(py: Python, obj: T) -> Self;
 }
 
+impl<T, U> FromGil<T> for U
+where
+    U: From<T>,
+{
+    #[inline]
+    fn from_gil(_py: Python, obj: T) -> Self {
+        Self::from(obj)
+    }
+}
+
 pub trait IntoGil<T>: Sized {
     fn into_gil(self, py: Python) -> T;
 }
@@ -50,6 +60,22 @@ where
     fn into_gil(self, py: Python) -> U {
         U::from_gil(py, self)
     }
+}
+
+fn into_py_from<T, U>(py: Python, obj: T) -> Py<U>
+where
+    T: IntoGil<U>,
+    U: pyo3::PyClass + Into<PyClassInitializer<U>>,
+{
+    Py::new(py, obj.into_gil(py)).unwrap()
+}
+
+fn from_py_into<T, U>(py: Python, obj: &Py<T>) -> U
+where
+    T: PyClass,
+    U: for<'a> FromGil<&'a T>,
+{
+    (&*obj.borrow(py)).into_gil(py)
 }
 
 pub trait PyDefault: Sized + PyClass {
