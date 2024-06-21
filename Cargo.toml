@@ -1,9 +1,10 @@
 [package]
 name = "rlbot-flatbuffers-py"
-version = "0.3.8"
+version = "0.3.9"
 edition = "2021"
 description = "A Python module implemented in Rust for serializing and deserializing RLBot's flatbuffers"
 repository = "https://github.com/VirxEC/rlbot_flatbuffers_py"
+build = "codegen/main.rs"
 license = "MIT"
 readme = "README.md"
 exclude = [".github", "pytest.py", "rustfmt.toml", ".gitignore", ".gitmodules", "flatc_mac"]

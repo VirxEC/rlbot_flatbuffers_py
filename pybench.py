@@ -15,7 +15,7 @@ def test_gtp():
         teams=[flat.TeamInfo() for _ in range(2)],
     )
 
-    for _ in range(20_000):
+    for _ in range(15_000):
         start = time_ns()
 
         packed = gtp.pack()
@@ -26,6 +26,7 @@ def test_gtp():
     print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
     avg_time_ns = sum(times) / len(times)
     print(f"Average time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum time per: {min(times) / 1000:.1f}us")
 
 
 def test_ballpred():
@@ -44,6 +45,7 @@ def test_ballpred():
     print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
     avg_time_ns = sum(times) / len(times)
     print(f"Average time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum time per: {min(times) / 1000:.1f}us")
 
 
 if __name__ == "__main__":
