@@ -15,7 +15,7 @@ def random_string():
 
 def random_player_config():
     return PlayerConfiguration(
-        variety=PlayerClass(Psyonix(1.)),
+        variety=PlayerClass(Psyonix(1.0)),
         name=random_string(),
         location=random_string(),
         run_command=random_string(),
@@ -23,7 +23,7 @@ def random_player_config():
             loadout_paint=LoadoutPaint(),
             primary_color_lookup=Color(),
             secondary_color_lookup=Color(),
-        )
+        ),
     )
 
 
@@ -60,11 +60,17 @@ if __name__ == "__main__":
     eval(repr(dgs))
     print()
 
-    print(repr(RenderType()))
+    print(repr(RenderMessage()))
 
-    render_type = RenderType(Line3D(MyVector(0, 0, 0), Vector3(1, 1, 1), Color(255)))
-    if isinstance(render_type.item, Line3D):
-        render_type.item.color.a = 150
+    render_type = RenderMessage(
+        Line3D(
+            Anchor(Vector3(0, 0, 0)),
+            Anchor(relative=CarAnchor(0, MyVector(1, 1, 1))),
+            Color(255),
+        )
+    )
+    if isinstance(render_type.variety.item, Line3D):
+        render_type.variety.item.color.a = 150
     else:
         raise ValueError("Expected Line3D")
 
@@ -101,16 +107,18 @@ if __name__ == "__main__":
         game_path=random_string(),
         game_map_upk=random_string(),
         player_configurations=[random_player_config() for _ in range(128)],
-        script_configurations = [random_script_config() for _ in range(8)],
-        mutator_settings=MutatorSettings()
+        script_configurations=[random_script_config() for _ in range(8)],
+        mutator_settings=MutatorSettings(),
     )
 
     data = match_settings.pack()
     print(f"MatchSettings size: {len(data)} bytes")
 
-    renderPolyLine = RenderMessage(RenderType(PolyLine3D(
-        [Vector3() for _ in range(2048)],
-    )))
+    renderPolyLine = RenderMessage(
+        PolyLine3D(
+            [Vector3() for _ in range(2048)],
+        )
+    )
 
     data = renderPolyLine.pack()
     print(f"RenderMessage size: {len(data)} bytes")

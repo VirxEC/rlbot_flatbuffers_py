@@ -24,7 +24,10 @@ create_exception!(rlbot_flatbuffers, InvalidFlatbuffer, PyValueError, "Invalid F
 #[track_caller]
 pub fn flat_err_to_py(err: flatbuffers::InvalidFlatbuffer) -> PyErr {
     let caller = Location::caller();
-    let err_msg = format!("Can't make flatbuffer @ \"rlbot_flatbuffers/{}\":\n  {err}", caller.file());
+    let err_msg = format!(
+        "Can't make flatbuffer @ \"rlbot_flatbuffers/{}\":\n  {err}",
+        caller.file()
+    );
     InvalidFlatbuffer::new_err(err_msg)
 }
 
@@ -171,6 +174,8 @@ pynamedmodule! {
     name: rlbot_flatbuffers,
     classes: [
         AirState,
+        Anchor,
+        BallAnchor,
         BallBouncinessOption,
         BallInfo,
         BallMaxSpeedOption,
@@ -184,6 +189,7 @@ pynamedmodule! {
         BoostPadState,
         BoostStrengthOption,
         BoxShape,
+        CarAnchor,
         CollisionShape,
         Color,
         ConsoleCommand,
@@ -234,6 +240,7 @@ pynamedmodule! {
         Psyonix,
         RLBot,
         ReadyMessage,
+        RelativeAnchor,
         RemoveRenderGroup,
         RenderGroup,
         RenderMessage,

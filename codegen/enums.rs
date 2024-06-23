@@ -15,7 +15,10 @@ fn camel_to_snake_case(variable_name: &str) -> String {
     for c in variable_name.chars() {
         if c.is_uppercase() {
             if last_was_uppercase {
-                snake_case_parts.last_mut().unwrap().push(c.to_lowercase().next().unwrap());
+                snake_case_parts
+                    .last_mut()
+                    .unwrap()
+                    .push(c.to_lowercase().next().unwrap());
             } else {
                 snake_case_parts.push(c.to_lowercase().to_string());
             }
@@ -170,7 +173,11 @@ impl EnumBindGenerator {
 
         for variable_info in &self.types {
             let variable_name = variable_info.name.as_str();
-            write_fmt!(self, "            {} => Ok(Self::{variable_name}),", variable_info.raw_type);
+            write_fmt!(
+                self,
+                "            {} => Ok(Self::{variable_name}),",
+                variable_info.raw_type
+            );
         }
 
         if self.types.len() != usize::from(u8::MAX) {
@@ -192,7 +199,11 @@ impl EnumBindGenerator {
 
     fn generate_repr_method(&mut self) {
         write_str!(self, "    pub fn __repr__(&self) -> String {");
-        write_fmt!(self, "        format!(\"{}(value={{}})\", *self as u8)", self.struct_name);
+        write_fmt!(
+            self,
+            "        format!(\"{}(value={{}})\", *self as u8)",
+            self.struct_name
+        );
         write_str!(self, "    }");
     }
 
@@ -251,7 +262,12 @@ impl Generator for EnumBindGenerator {
     }
 
     fn generate_from_flat_impls(&mut self) {
-        write_fmt!(self, "impl From<flat::{}> for {} {{", self.struct_name, self.struct_name);
+        write_fmt!(
+            self,
+            "impl From<flat::{}> for {} {{",
+            self.struct_name,
+            self.struct_name
+        );
         write_fmt!(self, "    fn from(flat_t: flat::{}) -> Self {{", self.struct_name);
         write_str!(self, "        match flat_t {");
 
@@ -274,7 +290,12 @@ impl Generator for EnumBindGenerator {
     }
 
     fn generate_to_flat_impls(&mut self) {
-        write_fmt!(self, "impl From<&{}> for flat::{} {{", self.struct_name, self.struct_name);
+        write_fmt!(
+            self,
+            "impl From<&{}> for flat::{} {{",
+            self.struct_name,
+            self.struct_name
+        );
         write_fmt!(self, "    fn from(py_type: &{}) -> Self {{", self.struct_name);
         write_str!(self, "        match *py_type {");
 

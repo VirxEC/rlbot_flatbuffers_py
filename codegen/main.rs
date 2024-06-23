@@ -58,6 +58,13 @@ impl PythonBindType {
         "GameMessageWrapper",
         "GameMessage",
     ];
+    pub const UNIONS: [&'static str; 5] = [
+        "PlayerClass",
+        "GameMessage",
+        "CollisionShape",
+        "RelativeAnchor",
+        "RenderType",
+    ];
 
     fn new(path: &Path) -> Option<Self> {
         // get the filename without the extension

@@ -8,7 +8,7 @@ def test_gtp():
 
     gtp = flat.GameTickPacket(
         ball=flat.BallInfo(
-            shape=flat.CollisionShape(flat.SphereShape()),
+            shape=flat.SphereShape(),
         ),
         players=[flat.PlayerInfo() for _ in range(128)],
         boost_pad_states=[flat.BoostPadState() for _ in range(128)],
