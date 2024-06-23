@@ -125,7 +125,7 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                         }
                         RustType::Option(InnerOptionType::Custom, type_name)
                         | RustType::Option(InnerOptionType::Box, type_name) => {
-                            python_types.push(format!("Optional[{type_name}]"));
+                            write_fmt!(file, "    {variable_name}: Optional[{type_name}]");
 
                             let python_type = if type_name == "Float" {
                                 "Float | float"
@@ -134,8 +134,8 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                             } else {
                                 type_name.as_str()
                             };
-
-                            write_fmt!(file, "    {variable_name}: Optional[{python_type}]");
+                            
+                            python_types.push(format!("Optional[{python_type}]"));
                         }
                         RustType::Box(inner_type) => {
                             python_types.push(inner_type.to_string());
