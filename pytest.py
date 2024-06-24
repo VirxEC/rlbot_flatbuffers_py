@@ -15,7 +15,7 @@ def random_string():
 
 def random_player_config():
     return PlayerConfiguration(
-        variety=PlayerClass(Psyonix(1.0)),
+        variety=Psyonix(1.0),
         name=random_string(),
         location=random_string(),
         run_command=random_string(),
@@ -119,6 +119,12 @@ if __name__ == "__main__":
             [Vector3() for _ in range(2048)],
         )
     )
+
+    match renderPolyLine.variety.item:
+        case PolyLine3D():
+            assert len(renderPolyLine.variety.item.points) == 2048
+        case _:
+            assert False
 
     data = renderPolyLine.pack()
     print(f"RenderMessage size: {len(data)} bytes")

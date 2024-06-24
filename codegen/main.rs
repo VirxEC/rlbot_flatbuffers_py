@@ -1,3 +1,4 @@
+mod class_inject;
 mod enums;
 mod generator;
 mod pyi;
@@ -161,20 +162,6 @@ fn mod_rs_generator(type_data: &[PythonBindType]) -> io::Result<()> {
     Ok(())
 }
 
-fn class_names_txt_generator(type_data: &[PythonBindType]) -> io::Result<()> {
-    let mut class_names = type_data
-        .iter()
-        .map(|generator| format!("    {}", generator.struct_name()))
-        .collect::<Vec<_>>();
-    class_names.sort();
-
-    let file_contents = format!("[\n{}\n]", class_names.join(",\n"));
-
-    fs::write("classes.txt", file_contents)?;
-
-    Ok(())
-}
-
 fn run_flatc() -> io::Result<()> {
     println!("cargo:rerun-if-changed=flatbuffers-schema/comms.fbs");
     println!("cargo:rerun-if-changed=flatbuffers-schema/event.fbs");
@@ -240,7 +227,7 @@ fn main() -> io::Result<()> {
 
     mod_rs_generator(&type_data)?;
     pyi::generator(&type_data)?;
-    class_names_txt_generator(&type_data)?;
+    class_inject::classes_to_lib_rs(&type_data)?;
 
     Ok(())
 }

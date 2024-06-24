@@ -243,11 +243,10 @@ impl StructBindGenerator {
 
     fn generate_new_method(&mut self) {
         write_str!(self, "    #[new]");
-        write_str!(self, "    #[allow(clippy::too_many_arguments)]");
 
         if self.types.is_empty() {
             write_str!(self, "    pub fn new() -> Self {");
-            write_str!(self, "        Self::default()");
+            write_str!(self, "        Self {}");
             write_str!(self, "    }");
             return;
         }
@@ -287,6 +286,11 @@ impl StructBindGenerator {
             };
 
             signature_parts.push(sig_part);
+        }
+
+        let max_num_types = if needs_python { 6 } else { 7 };
+        if self.types.len() > max_num_types {
+            write_str!(self, "    #[allow(clippy::too_many_arguments)]");
         }
 
         write_fmt!(self, "    #[pyo3(signature = ({}))]", signature_parts.join(", "));
