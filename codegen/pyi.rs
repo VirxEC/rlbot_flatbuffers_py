@@ -40,9 +40,10 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
         ("Vec<u8>", "bytes"),
     ];
 
-    for item in type_data {
-        let is_union = matches!(item, PythonBindType::Union { .. });
+    let mut sorted_types: Vec<&PythonBindType> = type_data.iter().collect();
+    sorted_types.sort_by(|a, b| a.struct_name().cmp(b.struct_name()));
 
+    for item in sorted_types {
         let type_name = item.struct_name();
 
         write_fmt!(file, "class {type_name}:");
@@ -217,7 +218,7 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
         write_str!(file, "    def __repr__(self) -> str: ...");
         write_str!(file, "    def __hash__(self) -> str: ...");
 
-        if !is_union {
+        if !(matches!(item, PythonBindType::Union { .. })) {
             write_str!(file, "    def pack(self) -> bytes: ...");
             write_str!(file, "    @staticmethod");
             write_fmt!(file, "    def unpack(data: bytes) -> {type_name}:");
