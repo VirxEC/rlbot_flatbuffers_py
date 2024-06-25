@@ -19,7 +19,7 @@ name = "rlbot_flatbuffers"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.21.0"
+pyo3 = { version = "0.22.0", features = ["py-clone"] }
 serde = "1.0.197"
 flatbuffers = "24.3.25"
 get-size = { version = "0.1.4", features = ["derive"] }

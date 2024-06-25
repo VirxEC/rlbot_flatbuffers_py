@@ -14,10 +14,7 @@ mod python;
 
 use pyo3::{create_exception, exceptions::PyValueError, prelude::*, types::PyBytes, PyClass};
 use python::*;
-use std::{
-    hash::{DefaultHasher, Hash, Hasher},
-    panic::Location,
-};
+use std::panic::Location;
 
 create_exception!(rlbot_flatbuffers, InvalidFlatbuffer, PyValueError, "Invalid FlatBuffer");
 
@@ -29,12 +26,6 @@ pub fn flat_err_to_py(err: flatbuffers::InvalidFlatbuffer) -> PyErr {
         caller.file()
     );
     InvalidFlatbuffer::new_err(err_msg)
-}
-
-pub fn hash_u8(num: u8) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    num.hash(&mut hasher);
-    hasher.finish()
 }
 
 pub trait FromGil<T> {
@@ -113,7 +104,7 @@ pub const fn bool_to_str(b: bool) -> &'static str {
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)]
+#[derive(Debug, FromPyObject)]
 pub enum Floats {
     Flat(Py<Float>),
     Num(f32),
@@ -134,7 +125,7 @@ impl FromGil<Floats> for Py<Float> {
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)]
+#[derive(Debug, FromPyObject)]
 pub enum Bools {
     Flat(Py<Bool>),
     Num(bool),

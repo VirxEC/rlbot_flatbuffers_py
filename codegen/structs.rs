@@ -596,7 +596,7 @@ impl Generator for StructBindGenerator {
         );
 
         if self.types.is_empty() {
-            write_str!(self, "#[derive(Debug, Default, Clone)]");
+            write_str!(self, "#[derive(Debug, Default, Clone, Copy)]");
             write_fmt!(self, "pub struct {} {{}}", self.struct_name);
             write_str!(self, "");
             return;

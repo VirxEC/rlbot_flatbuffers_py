@@ -206,12 +206,6 @@ impl EnumBindGenerator {
         );
         write_str!(self, "    }");
     }
-
-    fn generate_enum_hash_method(&mut self) {
-        write_str!(self, "    pub fn __hash__(&self) -> u64 {");
-        write_str!(self, "        crate::hash_u8(*self as u8)");
-        write_str!(self, "    }");
-    }
 }
 
 impl Generator for EnumBindGenerator {
@@ -247,8 +241,11 @@ impl Generator for EnumBindGenerator {
 
     fn generate_definition(&mut self) {
         write_str!(self, "#[allow(non_camel_case_types)]");
-        write_str!(self, "#[pyclass(module = \"rlbot_flatbuffers\", frozen)]");
-        write_str!(self, "#[derive(Debug, Default, Clone, Copy)]");
+        write_str!(
+            self,
+            "#[pyclass(module = \"rlbot_flatbuffers\", frozen, hash, eq, eq_int)]"
+        );
+        write_str!(self, "#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]");
         write_fmt!(self, "pub enum {} {{", self.struct_name);
         write_str!(self, "    #[default]");
 
@@ -329,7 +326,6 @@ impl Generator for EnumBindGenerator {
         self.generate_repr_method();
         write_str!(self, "");
 
-        self.generate_enum_hash_method();
         write_str!(self, "}");
         write_str!(self, "");
     }

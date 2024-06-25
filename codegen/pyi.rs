@@ -86,8 +86,9 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                 write_str!(file, "    def __int__(self) -> int: ...");
                 write_fmt!(
                     file,
-                    "    def __richcmp__(self, other: {type_name}, op: int) -> bool: ..."
+                    "    def __eq__(self, other: {type_name}) -> bool: ..."
                 );
+                write_str!(file, "    def __hash__(self) -> str: ...");
             }
             PythonBindType::Struct(gen) => {
                 let mut python_types = Vec::new();
@@ -216,7 +217,6 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
 
         write_str!(file, "    def __str__(self) -> str: ...");
         write_str!(file, "    def __repr__(self) -> str: ...");
-        write_str!(file, "    def __hash__(self) -> str: ...");
 
         if !(matches!(item, PythonBindType::Union { .. })) {
             write_str!(file, "    def pack(self) -> bytes: ...");
