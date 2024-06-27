@@ -63,7 +63,7 @@ impl PythonBindType {
         "PlayerClass",
         "GameMessage",
         "CollisionShape",
-        "RelativeRAnchor",
+        "RelativeAnchor",
         "RenderType",
     ];
 

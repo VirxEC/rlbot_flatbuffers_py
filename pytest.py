@@ -64,8 +64,8 @@ if __name__ == "__main__":
 
     render_type = RenderMessage(
         Line3D(
-            RAnchor(),
-            RAnchor(relative=CarRAnchor(0, MyVector(1, 1, 1))),
+            RenderAnchor(),
+            RenderAnchor(relative=CarAnchor(0, MyVector(1, 1, 1))),
             Color(255),
         )
     )
