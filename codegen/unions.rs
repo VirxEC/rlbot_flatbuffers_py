@@ -102,7 +102,7 @@ impl UnionBindGenerator {
                     self.struct_name
                 );
             } else {
-                write_str!(self, "            None => String::from(\"None\"),");
+                write_str!(self, "            None => crate::none_str(),");
             }
         }
 

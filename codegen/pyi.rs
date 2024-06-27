@@ -84,10 +84,7 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                 );
                 write_str!(file, "        \"\"\"\n");
                 write_str!(file, "    def __int__(self) -> int: ...");
-                write_fmt!(
-                    file,
-                    "    def __eq__(self, other: {type_name}) -> bool: ..."
-                );
+                write_fmt!(file, "    def __eq__(self, other: {type_name}) -> bool: ...");
                 write_str!(file, "    def __hash__(self) -> str: ...");
             }
             PythonBindType::Struct(gen) => {

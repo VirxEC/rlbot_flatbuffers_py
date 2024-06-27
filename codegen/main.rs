@@ -63,7 +63,7 @@ impl PythonBindType {
         "PlayerClass",
         "GameMessage",
         "CollisionShape",
-        "RelativeAnchor",
+        "RelativeRAnchor",
         "RenderType",
     ];
 
@@ -82,6 +82,7 @@ impl PythonBindType {
             struct_name.push_str(&c[1..]);
         }
         struct_name = struct_name
+            .replace("Ranchor", "RAnchor")
             .replace("Rlbot", "RLBot")
             .replace("Halign", "HAlign")
             .replace("Valign", "VAlign");
@@ -180,20 +181,23 @@ fn run_flatc() -> io::Result<()> {
 
     let schema_folder_str = schema_folder.display();
 
-    Command::new(format!("{schema_folder_str}/{FLATC_BINARY}"))
-        .args([
-            "--rust",
-            "--gen-object-api",
-            "--gen-all",
-            "--filename-suffix",
-            "",
-            "--rust-module-root-file",
-            "-o",
-            OUT_FOLDER,
-            &format!("{schema_folder_str}/rlbot.fbs"),
-        ])
-        .spawn()?
-        .wait()?;
+    let mut proc = Command::new(format!("{schema_folder_str}/{FLATC_BINARY}"));
+
+    proc.args([
+        "--rust",
+        "--gen-object-api",
+        "--gen-all",
+        "--filename-suffix",
+        "",
+        "--rust-module-root-file",
+        "-o",
+        OUT_FOLDER,
+        &format!("{schema_folder_str}/rlbot.fbs"),
+    ])
+    .spawn()?
+    .wait()?;
+
+    assert!(proc.status()?.success(), "flatc failed to run");
 
     Ok(())
 }
