@@ -49,8 +49,19 @@ if __name__ == "__main__":
     dgs = DesiredGameState(
         game_info_state=DesiredGameInfoState(game_speed=2, end_match=Bool())
     )
-    dgs.game_info_state.world_gravity_z = Float(-650)
-    dgs.game_info_state.end_match.val = True
+
+    match dgs.game_info_state:
+        case DesiredGameInfoState():
+            dgs.game_info_state.world_gravity_z = Float(-650)
+        case _:
+            assert False
+
+    match dgs.game_info_state.end_match:
+        case Bool(val):
+            dgs.game_info_state.end_match.val = not val
+        case _:
+            assert False
+
     dgs.console_commands = [ConsoleCommand("dump_items")]
     dgs.ball_state = DesiredBallState()
 
@@ -88,7 +99,14 @@ if __name__ == "__main__":
     print(comm.content.decode("utf-8"))
     print()
 
-    print(hash(AirState.Dodging))
+    air_state = AirState.Dodging
+    print(hash(air_state))
+
+    match air_state:
+        case AirState.Dodging:
+            pass
+        case _:
+            assert False
 
     try:
         AirState(8)
@@ -117,12 +135,14 @@ if __name__ == "__main__":
     renderPolyLine = RenderMessage(
         PolyLine3D(
             [Vector3() for _ in range(2048)],
-        )
+            Color(255),
+        ),
     )
 
     match renderPolyLine.variety.item:
-        case PolyLine3D():
-            assert len(renderPolyLine.variety.item.points) == 2048
+        case PolyLine3D(points, clr):
+            assert len(points) == 2048
+            assert clr.a == 255
         case _:
             assert False
 

@@ -174,6 +174,16 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                     }
                 }
 
+                if !gen.types.is_empty() {
+                    write_str!(file, "");
+                    write_str!(file, "    __match_args__ = (");
+
+                    for variable_info in &gen.types {
+                        write_fmt!(file, "        \"{}\",", variable_info.name);
+                    }
+                    write_str!(file, "    )");
+                }
+
                 if gen.types.is_empty() {
                     write_str!(file, "    def __init__(self): ...");
                 } else {

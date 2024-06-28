@@ -324,8 +324,6 @@ impl Generator for EnumBindGenerator {
         write_str!(self, "");
 
         self.generate_repr_method();
-        write_str!(self, "");
-
         write_str!(self, "}");
         write_str!(self, "");
     }
