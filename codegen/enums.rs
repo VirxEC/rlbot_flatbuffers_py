@@ -193,17 +193,13 @@ impl EnumBindGenerator {
 
     fn generate_str_method(&mut self) {
         write_str!(self, "    pub fn __str__(&self) -> String {");
-        write_str!(self, "        format!(\"{self:?}\")");
+        write_str!(self, "        self.__repr__()");
         write_str!(self, "    }");
     }
 
     fn generate_repr_method(&mut self) {
         write_str!(self, "    pub fn __repr__(&self) -> String {");
-        write_fmt!(
-            self,
-            "        format!(\"{}(value={{}})\", *self as u8)",
-            self.struct_name
-        );
+        write_fmt!(self, "        format!(\"{}.{{self:?}}\")", self.struct_name);
         write_str!(self, "    }");
     }
 }
