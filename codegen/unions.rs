@@ -83,8 +83,8 @@ impl UnionBindGenerator {
     }
 
     fn generate_str_method(&mut self) {
-        write_str!(self, "    pub fn __str__(&self) -> String {");
-        write_str!(self, "        format!(\"{self:?}\")");
+        write_str!(self, "    pub fn __str__(&self, py: Python) -> String {");
+        write_str!(self, "        self.__repr__(py)");
         write_str!(self, "    }");
     }
 

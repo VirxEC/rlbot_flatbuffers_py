@@ -4,6 +4,7 @@ use std::{borrow::Cow, fs, iter::repeat, path::Path};
 #[derive(Debug, PartialEq, Eq)]
 pub enum InnerVecType {
     U8,
+    String,
     Custom(String),
 }
 
@@ -157,6 +158,8 @@ impl StructBindGenerator {
                 let (rust_type, inner_type) = if raw_type.starts_with("Vec<") {
                     if raw_type == "Vec<u8>" {
                         (RustType::Vec(InnerVecType::U8), None)
+                    } else if raw_type == "Vec<String>" {
+                        (RustType::Vec(InnerVecType::String), None)
                     } else {
                         let inner_type = raw_type
                             .trim_start_matches("Vec<")
@@ -309,6 +312,7 @@ impl StructBindGenerator {
                 } else {
                     format!("Vec<Py<super::{inner_type}>>")
                 }),
+                RustType::Vec(InnerVecType::String) => Cow::Borrowed("Vec<String>"),
                 RustType::Vec(InnerVecType::U8) => Cow::Borrowed("Py<PyBytes>"),
                 RustType::Box(inner_type) => Cow::Owned(if self.is_frozen {
                     format!("super::{inner_type}")
@@ -375,8 +379,8 @@ impl StructBindGenerator {
     }
 
     fn generate_str_method(&mut self) {
-        write_str!(self, "    pub fn __str__(&self) -> String {");
-        write_str!(self, "        format!(\"{self:?}\")");
+        write_str!(self, "    pub fn __str__(&self, py: Python) -> String {");
+        write_str!(self, "        self.__repr__(py)");
         write_str!(self, "    }");
     }
 
@@ -404,7 +408,7 @@ impl StructBindGenerator {
                 match &variable_info.rust_type {
                     RustType::String => format!("{variable_name}={{:?}}"),
                     RustType::Vec(InnerVecType::U8) => format!("{variable_name}=bytes([{{}}])"),
-                    RustType::Vec(InnerVecType::Custom(_)) => format!("{variable_name}=[{{}}]"),
+                    RustType::Vec(_) => format!("{variable_name}=[{{}}]"),
                     _ => format!("{variable_name}={{}}"),
                 }
             })
@@ -423,6 +427,10 @@ impl StructBindGenerator {
                             write_str!(self, "                .as_bytes(py)");
                             write_str!(self, "                .iter()");
                             write_str!(self, "                .map(ToString::to_string)");
+                        }
+                        InnerVecType::String => {
+                            write_str!(self, "                .iter()");
+                            write_str!(self, "                .map(|s| format!(\"{s:?}\"))");
                         }
                         InnerVecType::Custom(_) => {
                             write_str!(self, "                .iter()");
@@ -665,6 +673,7 @@ impl Generator for StructBindGenerator {
 
             let variable_type = match &variable_info.rust_type {
                 RustType::Vec(InnerVecType::U8) => String::from("Py<PyBytes>"),
+                RustType::Vec(InnerVecType::String) => String::from("Vec<String>"),
                 RustType::Vec(InnerVecType::Custom(inner_type)) => {
                     if self.is_frozen {
                         format!("Vec<super::{inner_type}>")
@@ -717,7 +726,7 @@ impl Generator for StructBindGenerator {
 
             let end = match &variable_info.rust_type {
                 RustType::Vec(InnerVecType::U8) => Cow::Borrowed("PyBytes::new_bound(py, &[]).unbind()"),
-                RustType::Vec(InnerVecType::Custom(_)) => Cow::Borrowed("Vec::new()"),
+                RustType::Vec(InnerVecType::Custom(_) | InnerVecType::String) => Cow::Borrowed("Vec::new()"),
                 RustType::Option(_, _) => Cow::Borrowed("None"),
                 RustType::Union(inner_type) | RustType::Box(inner_type) | RustType::Custom(inner_type) => {
                     Cow::Owned(format!("super::{inner_type}::py_default(py)"))
@@ -777,6 +786,9 @@ impl Generator for StructBindGenerator {
                         self,
                         "            {variable_name}: PyBytes::new_bound(py, &flat_t.{variable_name}).unbind(),"
                     )
+                }
+                RustType::Vec(InnerVecType::String) => {
+                    write_fmt!(self, "            {variable_name}: flat_t.{variable_name},")
                 }
                 RustType::Vec(InnerVecType::Custom(_)) => {
                     if self.is_frozen {
@@ -894,6 +906,9 @@ impl Generator for StructBindGenerator {
                         self,
                         "            {variable_name}: py_type.{variable_name}.as_bytes(py).to_vec(),"
                     )
+                }
+                RustType::Vec(InnerVecType::String) => {
+                    write_fmt!(self, "            {variable_name}: py_type.{variable_name}.clone(),")
                 }
                 RustType::Vec(InnerVecType::Custom(_)) => {
                     if self.is_frozen {

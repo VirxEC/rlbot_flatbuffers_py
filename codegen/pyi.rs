@@ -107,6 +107,10 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                             python_types.push("bytes".to_string());
                             write_fmt!(file, "    {variable_name}: bytes");
                         }
+                        RustType::Vec(InnerVecType::String) => {
+                            python_types.push("Sequence[str]".to_string());
+                            write_fmt!(file, "    {variable_name}: Sequence[str]");
+                        }
                         RustType::Vec(InnerVecType::Custom(inner_type)) => {
                             python_types.push(format!("Sequence[{inner_type}]"));
                             write_fmt!(file, "    {variable_name}: Sequence[{inner_type}]");
