@@ -7,9 +7,7 @@ def test_gtp():
     times = []
 
     gtp = flat.GameTickPacket(
-        ball=flat.BallInfo(
-            shape=flat.SphereShape(),
-        ),
+        balls=[flat.BallInfo(shape=flat.SphereShape()) for _ in range(32)],
         players=[flat.PlayerInfo() for _ in range(128)],
         boost_pad_states=[flat.BoostPadState() for _ in range(128)],
         teams=[flat.TeamInfo() for _ in range(2)],
@@ -32,13 +30,13 @@ def test_gtp():
 def test_ballpred():
     times = []
 
-    ballPred = flat.BallPrediction([flat.PredictionSlice() for _ in range(720)])
+    ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(960)])
 
     for _ in range(10_000):
         start = time_ns()
 
-        ballpred_bytes = ballPred.pack()
-        flat.BallPrediction.unpack(ballpred_bytes)
+        packed = ballPred.pack()
+        flat.BallPrediction.unpack(packed)
 
         times.append(time_ns() - start)
 

@@ -25,7 +25,7 @@ pub enum PythonBindType {
 
 impl PythonBindType {
     pub const BASE_TYPES: [&'static str; 6] = ["bool", "i32", "u32", "f32", "String", "u8"];
-    pub const FROZEN_TYPES: [&'static str; 24] = [
+    pub const FROZEN_TYPES: [&'static str; 18] = [
         "FieldInfo",
         "BoostPad",
         "GoalInfo",
@@ -44,28 +44,9 @@ impl PythonBindType {
         "BallPrediction",
         "PredictionSlice",
         "Physics",
-        "MessagePacket",
-        "GameMessageWrapper",
-        "GameMessage",
-        "PlayerInputChange",
-        "PlayerSpectate",
-        "PlayerStatEvent",
     ];
-    pub const FROZEN_NEEDS_PY: [&'static str; 6] = [
-        "GameTickPacket",
-        "BallInfo",
-        "CollisionShape",
-        "MessagePacket",
-        "GameMessageWrapper",
-        "GameMessage",
-    ];
-    pub const UNIONS: [&'static str; 5] = [
-        "PlayerClass",
-        "GameMessage",
-        "CollisionShape",
-        "RelativeAnchor",
-        "RenderType",
-    ];
+    pub const FROZEN_NEEDS_PY: [&'static str; 3] = ["GameTickPacket", "BallInfo", "CollisionShape"];
+    pub const UNIONS: [&'static str; 4] = ["PlayerClass", "CollisionShape", "RelativeAnchor", "RenderType"];
 
     fn new(path: &Path) -> Option<Self> {
         // get the filename without the extension
@@ -82,7 +63,6 @@ impl PythonBindType {
             struct_name.push_str(&c[1..]);
         }
         struct_name = struct_name
-            .replace("Ranchor", "RAnchor")
             .replace("Rlbot", "RLBot")
             .replace("Halign", "HAlign")
             .replace("Valign", "VAlign");
@@ -165,7 +145,6 @@ fn mod_rs_generator(type_data: &[PythonBindType]) -> io::Result<()> {
 
 fn run_flatc() -> io::Result<()> {
     println!("cargo:rerun-if-changed=flatbuffers-schema/comms.fbs");
-    println!("cargo:rerun-if-changed=flatbuffers-schema/event.fbs");
     println!("cargo:rerun-if-changed=flatbuffers-schema/gamestate.fbs");
     println!("cargo:rerun-if-changed=flatbuffers-schema/matchstart.fbs");
     println!("cargo:rerun-if-changed=flatbuffers-schema/rendering.fbs");

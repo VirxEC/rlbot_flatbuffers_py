@@ -39,9 +39,11 @@ if __name__ == "__main__":
     vec2 = Vector3(4, 5, 6)
     print(vec1 + vec2)
 
-    ready_message = ReadyMessage(True, wants_game_messages=True)
+    player_info = PlayerInfo(accolades=["MVP", "Hat Trick"])
+    eval(repr(player_info))
+
+    ready_message = ReadyMessage(True, close_after_match=True)
     print(hash(ready_message))
-    print(repr(ready_message))
     print(ready_message)
     eval(repr(ready_message))
     print()
@@ -63,10 +65,9 @@ if __name__ == "__main__":
             assert False
 
     dgs.console_commands = [ConsoleCommand("dump_items")]
-    dgs.ball_state = DesiredBallState()
+    dgs.ball_states = [DesiredBallState()]
 
     print(hash(dgs))
-    print(repr(dgs))
     print(dgs)
     eval(repr(dgs))
     print()
@@ -86,14 +87,12 @@ if __name__ == "__main__":
         raise ValueError("Expected Line3D")
 
     print(hash(render_type))
-    print(repr(render_type))
     print(render_type)
     eval(repr(render_type))
     print()
 
     comm = MatchComm(3, 1, False, "Ready!", b"Hello, world!")
     print(hash(comm))
-    print(repr(comm))
     print(comm)
     eval(repr(comm))
     print(comm.content.decode("utf-8"))
@@ -151,6 +150,14 @@ if __name__ == "__main__":
 
     print()
 
+    ballPred = BallPrediction([
+        PredictionSlice(1) for _ in range(5 * 120)
+    ])
+    data = ballPred.pack()
+    print(f"BallPrediction size: {len(data)} bytes")
+
+    print()
+
     print("Running quick benchmark...")
 
     num_trials = 60_000
@@ -161,15 +168,18 @@ if __name__ == "__main__":
     for _ in range(num_trials):
         start = time_ns()
         desired_game_state = DesiredGameState(
-            DesiredBallState(
-                DesiredPhysics(
-                    Vector3Partial(0, 0, 0),
-                    RotatorPartial(0, 0, 0),
-                    Vector3Partial(0, 0, 0),
-                    Vector3Partial(0, 0, 0),
+            [
+                DesiredBallState(
+                    DesiredPhysics(
+                        Vector3Partial(0, 0, 0),
+                        RotatorPartial(0, 0, 0),
+                        Vector3Partial(0, 0, 0),
+                        Vector3Partial(0, 0, 0),
+                    )
                 )
-            ),
-            car_states=[
+                for _ in range(16)
+            ],
+            [
                 DesiredCarState(
                     DesiredPhysics(
                         Vector3Partial(0, 0, 0),
