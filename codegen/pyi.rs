@@ -60,9 +60,12 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
 
                 write_fmt!(file, "    item: Optional[{union_str}]");
                 write_str!(file, "");
+                write_str!(file, "    def __new__(");
+                write_fmt!(file, "        cls, item: Optional[{union_str}] = None");
+                write_str!(file, "    ): ...");
                 write_str!(file, "    def __init__(");
                 write_fmt!(file, "        self, item: Optional[{union_str}] = None");
-                write_str!(file, "    ): ...");
+                write_str!(file, "    ): ...\n");
             }
             PythonBindType::Enum(gen) => {
                 for variable_info in &gen.types {
@@ -76,13 +79,14 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                 }
 
                 write_str!(file, "");
+                write_str!(file, "    def __new__(cls, value: int = 0): ...");
                 write_str!(file, "    def __init__(self, value: int = 0):");
                 write_str!(file, "        \"\"\"");
                 write_str!(
                     file,
                     "        :raises ValueError: If the `value` is not a valid enum value"
                 );
-                write_str!(file, "        \"\"\"\n");
+                write_str!(file, "        \"\"\"");
                 write_str!(file, "    def __int__(self) -> int: ...");
                 write_fmt!(file, "    def __eq__(self, other: {type_name}) -> bool: ...");
                 write_str!(file, "    def __hash__(self) -> str: ...");
@@ -192,36 +196,43 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                     write_str!(file, "    def __init__(self): ...");
                 } else {
                     write_str!(file, "");
-                    write_str!(file, "    def __init__(");
-                    write_str!(file, "        self,");
 
-                    for (variable_info, python_type) in gen.types.iter().zip(python_types) {
-                        let variable_name = variable_info.name.as_str();
+                    let inits = [("new", "cls"), ("init", "self")];
 
-                        let default_value = match variable_info.raw_type.as_str() {
-                            "bool" => Cow::Borrowed("False"),
-                            "i32" | "u32" | "f32" | "u8" => Cow::Borrowed("0"),
-                            "String" => Cow::Borrowed("\"\""),
-                            "Vec<u8>" => Cow::Borrowed("b\"\""),
-                            t => {
-                                if python_type.starts_with("Optional") || t.starts_with("Option<") {
-                                    Cow::Borrowed("None")
-                                } else if t.starts_with("Vec<") {
-                                    Cow::Borrowed("[]")
-                                } else if t.starts_with("Box<") {
-                                    let inner_type =
-                                        t.trim_start_matches("Box<").trim_end_matches('>').trim_end_matches('T');
-                                    Cow::Owned(format!("{inner_type}()"))
-                                } else {
-                                    Cow::Owned(format!("{}()", t.trim_end_matches('T')))
+                    for (func, first_arg) in inits {
+                        write_fmt!(file, "    def __{func}__(");
+                        write_fmt!(file, "        {first_arg},");
+
+                        for (variable_info, python_type) in gen.types.iter().zip(&python_types) {
+                            let variable_name = variable_info.name.as_str();
+
+                            let default_value = match variable_info.raw_type.as_str() {
+                                "bool" => Cow::Borrowed("False"),
+                                "i32" | "u32" | "f32" | "u8" => Cow::Borrowed("0"),
+                                "String" => Cow::Borrowed("\"\""),
+                                "Vec<u8>" => Cow::Borrowed("b\"\""),
+                                t => {
+                                    if python_type.starts_with("Optional") || t.starts_with("Option<") {
+                                        Cow::Borrowed("None")
+                                    } else if t.starts_with("Vec<") {
+                                        Cow::Borrowed("[]")
+                                    } else if t.starts_with("Box<") {
+                                        let inner_type = t
+                                            .trim_start_matches("Box<")
+                                            .trim_end_matches('>')
+                                            .trim_end_matches('T');
+                                        Cow::Owned(format!("{inner_type}()"))
+                                    } else {
+                                        Cow::Owned(format!("{}()", t.trim_end_matches('T')))
+                                    }
                                 }
-                            }
-                        };
+                            };
 
-                        write_fmt!(file, "        {variable_name}: {python_type} = {default_value},");
+                            write_fmt!(file, "        {variable_name}: {python_type} = {default_value},");
+                        }
+
+                        write_str!(file, "    ): ...");
                     }
-
-                    write_str!(file, "    ): ...");
                 }
 
                 write_str!(file, "    def pack(self) -> bytes: ...");
