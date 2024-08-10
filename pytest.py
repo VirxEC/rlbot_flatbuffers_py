@@ -15,7 +15,7 @@ def random_string():
 
 def random_player_config():
     return PlayerConfiguration(
-        variety=Psyonix(1.0),
+        variety=Psyonix(PsyonixSkill.AllStar),
         name=random_string(),
         location=random_string(),
         run_command=random_string(),
@@ -42,10 +42,10 @@ if __name__ == "__main__":
     player_info = PlayerInfo(accolades=["MVP", "Hat Trick"])
     eval(repr(player_info))
 
-    ready_message = ReadyMessage(True, close_after_match=True)
-    print(hash(ready_message))
-    print(ready_message)
-    eval(repr(ready_message))
+    connection_settings = ConnectionSettings(True, close_after_match=True)
+    print(hash(connection_settings))
+    print(connection_settings)
+    eval(repr(connection_settings))
     print()
 
     dgs = DesiredGameState(
