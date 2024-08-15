@@ -165,6 +165,7 @@ pynamedmodule! {
     name: rlbot_flatbuffers,
     classes: [
         AirState,
+        AudioOption,
         BallAnchor,
         BallBouncinessOption,
         BallInfo,
@@ -196,6 +197,7 @@ pynamedmodule! {
         ExistingMatchBehavior,
         FieldInfo,
         Float,
+        GameEventOption,
         GameInfo,
         GameMode,
         GameSpeedOption,
@@ -212,6 +214,7 @@ pynamedmodule! {
         MatchLength,
         MatchSettings,
         MaxScore,
+        MaxTimeOption,
         MultiBall,
         MutatorSettings,
         OvertimeOption,
