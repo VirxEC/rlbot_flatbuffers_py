@@ -1,6 +1,6 @@
 [package]
 name = "rlbot-flatbuffers-py"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 description = "A Python module implemented in Rust for serializing and deserializing RLBot's flatbuffers"
 repository = "https://github.com/VirxEC/rlbot_flatbuffers_py"
@@ -22,7 +22,9 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.22.0", features = ["py-clone"] }
 serde = "1.0.197"
 flatbuffers = "24.3.25"
-get-size = { version = "0.1.4", features = ["derive"] }
+# get-size appears to be unmaintained but it's too useful here
+# forked and updated deps
+get-size = { git = "https://github.com/VirxEC/get-size", branch = "update", features = ["derive"] }
 
 [profile.release]
 lto = true
