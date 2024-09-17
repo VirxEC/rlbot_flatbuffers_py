@@ -150,9 +150,7 @@ if __name__ == "__main__":
 
     print()
 
-    ballPred = BallPrediction([
-        PredictionSlice(1) for _ in range(5 * 120)
-    ])
+    ballPred = BallPrediction([PredictionSlice(1) for _ in range(5 * 120)])
     data = ballPred.pack()
     print(f"BallPrediction size: {len(data)} bytes")
 

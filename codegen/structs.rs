@@ -327,6 +327,8 @@ impl StructBindGenerator {
                     String::from("Option<crate::Floats>")
                 } else if inner_type == "Bool" {
                     String::from("Option<crate::Bools>")
+                } else if self.is_frozen {
+                    format!("Option<super::{inner_type}>")
                 } else {
                     format!("Option<Py<super::{inner_type}>>")
                 }),
@@ -690,7 +692,13 @@ impl Generator for StructBindGenerator {
                 }
                 RustType::Option(InnerOptionType::BaseType, inner_type)
                 | RustType::Option(InnerOptionType::String, inner_type) => format!("Option<{inner_type}>"),
-                RustType::Option(_, inner_type) => format!("Option<Py<super::{inner_type}>>"),
+                RustType::Option(_, inner_type) => {
+                    if self.is_frozen {
+                        format!("Option<super::{inner_type}>")
+                    } else {
+                        format!("Option<Py<super::{inner_type}>>")
+                    }
+                }
                 RustType::Base(inner_type) => inner_type.clone(),
                 RustType::String => String::from("String"),
                 RustType::Union(inner_type) | RustType::Custom(inner_type) => {
@@ -810,9 +818,15 @@ impl Generator for StructBindGenerator {
                     }
                 }
                 RustType::Option(InnerOptionType::Box, _) => {
+                    let inner = if self.is_frozen {
+                        "(*x).into()"
+                    } else {
+                        "crate::into_py_from(py, *x)"
+                    };
+
                     write_fmt!(
                         self,
-                        "            {variable_name}: flat_t.{variable_name}.map(|x| crate::into_py_from(py, *x)),"
+                        "            {variable_name}: flat_t.{variable_name}.map(|x| {inner}),"
                     );
                 }
                 RustType::Option(InnerOptionType::String, _) => {
@@ -930,7 +944,13 @@ impl Generator for StructBindGenerator {
                     }
                 }
                 RustType::Option(InnerOptionType::Box, _) => {
-                    write_fmt!(self, "            {variable_name}: py_type.{variable_name}.as_ref().map(|x| Box::new(crate::from_py_into(py, x))),");
+                    let inner = if self.is_frozen {
+                        "x.into()"
+                    } else {
+                        "crate::from_py_into(py, x)"
+                    };
+
+                    write_fmt!(self, "            {variable_name}: py_type.{variable_name}.as_ref().map(|x| Box::new({inner})),");
                 }
                 RustType::Option(InnerOptionType::String, _) => {
                     write_fmt!(self, "            {variable_name}: py_type.{variable_name}.clone(),");
