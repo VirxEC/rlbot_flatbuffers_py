@@ -4,6 +4,7 @@
     clippy::derivable_impls,
     clippy::unnecessary_cast,
     clippy::size_of_in_element_count,
+    clippy::too_long_first_doc_paragraph,
     non_snake_case,
     unused_imports
 )]
