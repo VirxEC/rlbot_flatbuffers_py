@@ -17,7 +17,12 @@ use pyo3::{create_exception, exceptions::PyValueError, prelude::*, types::PyByte
 use python::*;
 use std::panic::Location;
 
-create_exception!(rlbot_flatbuffers, InvalidFlatbuffer, PyValueError, "Invalid FlatBuffer");
+create_exception!(
+    rlbot_flatbuffers,
+    InvalidFlatbuffer,
+    PyValueError,
+    "Invalid FlatBuffer"
+);
 
 #[track_caller]
 pub fn flat_err_to_py(err: flatbuffers::InvalidFlatbuffer) -> PyErr {
@@ -186,6 +191,8 @@ pynamedmodule! {
         Color,
         ConnectionSettings,
         ConsoleCommand,
+        ControllableInfo,
+        ControllableTeamInfo,
         ControllerState,
         CylinderShape,
         DemolishOption,
@@ -201,13 +208,12 @@ pynamedmodule! {
         GameEventOption,
         GameInfo,
         GameMode,
+        GamePacket,
         GameSpeedOption,
-        GameStateType,
-        GameTickPacket,
+        GameStatus,
         GoalInfo,
         GravityOption,
         Human,
-        InitComplete,
         Launcher,
         Line3D,
         LoadoutPaint,
@@ -254,6 +260,7 @@ pynamedmodule! {
         TextHAlign,
         TextVAlign,
         Touch,
+        Vector2,
         Vector3,
         Vector3Partial
     ],

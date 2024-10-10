@@ -88,7 +88,10 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                 );
                 write_str!(file, "        \"\"\"");
                 write_str!(file, "    def __int__(self) -> int: ...");
-                write_fmt!(file, "    def __eq__(self, other: {type_name}) -> bool: ...");
+                write_fmt!(
+                    file,
+                    "    def __eq__(self, other: {type_name}) -> bool: ..."
+                );
                 write_str!(file, "    def __hash__(self) -> str: ...");
             }
             PythonBindType::Struct(gen) => {
@@ -110,6 +113,20 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                         RustType::Vec(InnerVecType::U8) => {
                             python_types.push("bytes".to_string());
                             write_fmt!(file, "    {variable_name}: bytes");
+                        }
+                        RustType::Vec(InnerVecType::Base(type_name)) => {
+                            let python_type = if type_name == "bool" {
+                                "bool"
+                            } else if type_name == "i32" || type_name == "u32" {
+                                "int"
+                            } else if type_name == "f32" {
+                                "float"
+                            } else {
+                                type_name
+                            };
+
+                            python_types.push(format!("Sequence[{python_type}]"));
+                            write_fmt!(file, "    {variable_name}: Sequence[{python_type}]");
                         }
                         RustType::Vec(InnerVecType::String) => {
                             python_types.push("Sequence[str]".to_string());
@@ -166,8 +183,16 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                             let union_types = type_data
                                 .iter()
                                 .find_map(|item| match item {
-                                    PythonBindType::Union(gen) if gen.struct_name() == type_name => {
-                                        Some(gen.types.iter().skip(1).map(|v| v.name.as_str()).collect::<Vec<_>>())
+                                    PythonBindType::Union(gen)
+                                        if gen.struct_name() == type_name =>
+                                    {
+                                        Some(
+                                            gen.types
+                                                .iter()
+                                                .skip(1)
+                                                .map(|v| v.name.as_str())
+                                                .collect::<Vec<_>>(),
+                                        )
                                     }
                                     _ => None,
                                 })
@@ -175,7 +200,9 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                             let types = union_types.join(" | ");
                             python_types.push(format!("Optional[{types}]"));
                         }
-                        RustType::Custom(type_name) | RustType::Other(type_name) | RustType::Base(type_name) => {
+                        RustType::Custom(type_name)
+                        | RustType::Other(type_name)
+                        | RustType::Base(type_name) => {
                             python_types.push(type_name.to_string());
                             write_fmt!(file, "    {variable_name}: {type_name}");
                         }
@@ -212,7 +239,9 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                                 "String" => Cow::Borrowed("\"\""),
                                 "Vec<u8>" => Cow::Borrowed("b\"\""),
                                 t => {
-                                    if python_type.starts_with("Optional") || t.starts_with("Option<") {
+                                    if python_type.starts_with("Optional")
+                                        || t.starts_with("Option<")
+                                    {
                                         Cow::Borrowed("None")
                                     } else if t.starts_with("Vec<") {
                                         Cow::Borrowed("[]")
@@ -228,7 +257,10 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                                 }
                             };
 
-                            write_fmt!(file, "        {variable_name}: {python_type} = {default_value},");
+                            write_fmt!(
+                                file,
+                                "        {variable_name}: {python_type} = {default_value},"
+                            );
                         }
 
                         write_str!(file, "    ): ...");

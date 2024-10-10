@@ -41,8 +41,9 @@ if __name__ == "__main__":
 
     player_info = PlayerInfo(accolades=["MVP", "Hat Trick"])
     eval(repr(player_info))
+    print()
 
-    connection_settings = ConnectionSettings(True, close_after_match=True)
+    connection_settings = ConnectionSettings("rlbot/abot", True, close_after_match=True)
     print(hash(connection_settings))
     print(connection_settings)
     eval(repr(connection_settings))

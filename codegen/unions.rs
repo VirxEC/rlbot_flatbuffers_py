@@ -61,7 +61,10 @@ impl UnionBindGenerator {
         write_str!(self, "    }");
         write_str!(self, "");
         write_str!(self, "    #[getter(item)]");
-        write_str!(self, "    pub fn get(&self, py: Python) -> Option<PyObject> {");
+        write_str!(
+            self,
+            "    pub fn get(&self, py: Python) -> Option<PyObject> {"
+        );
         write_str!(self, "        match self.item.as_ref() {");
 
         for variable_info in &self.types {
@@ -123,7 +126,11 @@ impl UnionBindGenerator {
                     self.struct_name, self.struct_name
                 );
             } else {
-                write_fmt!(self, "            None => String::from(\"{}()\"),", self.struct_name);
+                write_fmt!(
+                    self,
+                    "            None => String::from(\"{}()\"),",
+                    self.struct_name
+                );
             }
         }
 
@@ -153,7 +160,10 @@ impl Generator for UnionBindGenerator {
             contents = contents.replace("\r\n", "\n");
         }
 
-        contents = contents.replace("use self::flatbuffers", "use get_size::GetSize;\nuse self::flatbuffers");
+        contents = contents.replace(
+            "use self::flatbuffers",
+            "use get_size::GetSize;\nuse self::flatbuffers",
+        );
 
         contents = contents.replace(
             "#[derive(Debug, Clone, PartialEq)]\n",
@@ -265,7 +275,11 @@ impl Generator for UnionBindGenerator {
             let variable_name = variable_info.name.as_str();
 
             if let Some(ref value) = variable_info.value {
-                write_fmt!(self, "            Some({}Union::{value}(item)) => {{", self.struct_name,);
+                write_fmt!(
+                    self,
+                    "            Some({}Union::{value}(item)) => {{",
+                    self.struct_name,
+                );
                 write_fmt!(
                     self,
                     "                flat::{}::{variable_name}(Box::new(crate::from_py_into(py, item)))",

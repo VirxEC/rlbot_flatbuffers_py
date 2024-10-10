@@ -25,11 +25,11 @@ pub enum PythonBindType {
 
 impl PythonBindType {
     pub const BASE_TYPES: [&'static str; 6] = ["bool", "i32", "u32", "f32", "String", "u8"];
-    pub const FROZEN_TYPES: [&'static str; 18] = [
+    pub const FROZEN_TYPES: [&'static str; 21] = [
         "FieldInfo",
         "BoostPad",
         "GoalInfo",
-        "GameTickPacket",
+        "GamePacket",
         "PlayerInfo",
         "ScoreInfo",
         "BallInfo",
@@ -44,9 +44,17 @@ impl PythonBindType {
         "BallPrediction",
         "PredictionSlice",
         "Physics",
+        "Vector2",
+        "ControllableInfo",
+        "ControllableTeamInfo",
     ];
-    pub const FROZEN_NEEDS_PY: [&'static str; 3] = ["GameTickPacket", "BallInfo", "CollisionShape"];
-    pub const UNIONS: [&'static str; 4] = ["PlayerClass", "CollisionShape", "RelativeAnchor", "RenderType"];
+    pub const FROZEN_NEEDS_PY: [&'static str; 3] = ["GamePacket", "BallInfo", "CollisionShape"];
+    pub const UNIONS: [&'static str; 4] = [
+        "PlayerClass",
+        "CollisionShape",
+        "RelativeAnchor",
+        "RenderType",
+    ];
 
     fn new(path: &Path) -> Option<Self> {
         // get the filename without the extension
@@ -84,11 +92,15 @@ impl PythonBindType {
             )?));
         }
 
-        if let Some((types, enum_type)) = enums::EnumBindGenerator::get_types(&contents, &struct_name) {
+        if let Some((types, enum_type)) =
+            enums::EnumBindGenerator::get_types(&contents, &struct_name)
+        {
             return Some(match enum_type {
-                enums::EnumType::Enum => {
-                    Self::Enum(enums::EnumBindGenerator::new(filename.to_string(), struct_name, types)?)
-                }
+                enums::EnumType::Enum => Self::Enum(enums::EnumBindGenerator::new(
+                    filename.to_string(),
+                    struct_name,
+                    types,
+                )?),
                 enums::EnumType::Union => Self::Union(unions::UnionBindGenerator::new(
                     filename.to_string(),
                     struct_name,
@@ -138,7 +150,10 @@ fn mod_rs_generator(type_data: &[PythonBindType]) -> io::Result<()> {
 
     file_contents.push(Cow::Borrowed(""));
 
-    fs::write(format!("{PYTHON_OUT_FOLDER}/mod.rs"), file_contents.join("\n"))?;
+    fs::write(
+        format!("{PYTHON_OUT_FOLDER}/mod.rs"),
+        file_contents.join("\n"),
+    )?;
 
     Ok(())
 }
@@ -155,7 +170,10 @@ fn run_flatc() -> io::Result<()> {
     let mut schema_folder = Path::new(SCHEMA_FOLDER);
     if !schema_folder.exists() {
         schema_folder = Path::new(SCHEMA_FOLDER_BACKUP);
-        assert!(schema_folder.exists(), "Could not find flatbuffers schema folder");
+        assert!(
+            schema_folder.exists(),
+            "Could not find flatbuffers schema folder"
+        );
     }
 
     let schema_folder_str = schema_folder.display();

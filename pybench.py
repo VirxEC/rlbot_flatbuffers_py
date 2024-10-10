@@ -6,18 +6,18 @@ import rlbot_flatbuffers as flat
 def test_gtp():
     times = []
 
-    gtp = flat.GameTickPacket(
+    gtp = flat.GamePacket(
         balls=[flat.BallInfo(shape=flat.SphereShape()) for _ in range(32)],
         players=[flat.PlayerInfo() for _ in range(128)],
         boost_pads=[flat.BoostPadState() for _ in range(128)],
         teams=[flat.TeamInfo() for _ in range(2)],
     )
 
-    for _ in range(15_000):
+    for _ in range(20_000):
         start = time_ns()
 
         packed = gtp.pack()
-        flat.GameTickPacket.unpack(packed)
+        flat.GamePacket.unpack(packed)
 
         times.append(time_ns() - start)
 
@@ -32,7 +32,7 @@ def test_ballpred():
 
     ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(960)])
 
-    for _ in range(10_000):
+    for _ in range(100_000):
         start = time_ns()
 
         packed = ballPred.pack()
