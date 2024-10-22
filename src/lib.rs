@@ -237,6 +237,8 @@ pynamedmodule! {
         Psyonix,
         PsyonixSkill,
         RLBot,
+        Rect2D,
+        Rect3D,
         RelativeAnchor,
         RemoveRenderGroup,
         RenderAnchor,
