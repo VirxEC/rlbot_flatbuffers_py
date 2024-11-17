@@ -33,7 +33,7 @@ impl UnionBindGenerator {
 
         let file_contents = vec![
             Cow::Borrowed("use crate::{generated::rlbot::flat, FromGil};"),
-            Cow::Borrowed("use pyo3::{pyclass, pymethods, Py, PyObject, Python, ToPyObject};"),
+            Cow::Borrowed("use pyo3::{pyclass, pymethods, Bound, Py, PyObject, Python};"),
             Cow::Borrowed(""),
         ];
 
@@ -61,10 +61,7 @@ impl UnionBindGenerator {
         write_str!(self, "    }");
         write_str!(self, "");
         write_str!(self, "    #[getter(item)]");
-        write_str!(
-            self,
-            "    pub fn get(&self, py: Python) -> Option<PyObject> {"
-        );
+        write_str!(self, "    pub fn get(&self) -> Option<&PyObject> {");
         write_str!(self, "        match self.item.as_ref() {");
 
         for variable_info in &self.types {
@@ -75,7 +72,7 @@ impl UnionBindGenerator {
             } else {
                 write_fmt!(
                     self,
-                    "            Some({}Union::{variable_name}(item)) => Some(item.to_object(py)),",
+                    "            Some({}Union::{variable_name}(item)) => Some(item.as_any()),",
                     self.struct_name
                 );
             }

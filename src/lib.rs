@@ -4,6 +4,7 @@
     clippy::derivable_impls,
     clippy::unnecessary_cast,
     clippy::size_of_in_element_count,
+    clippy::needless_lifetimes,
     clippy::too_long_first_doc_paragraph,
     non_snake_case,
     unused_imports
@@ -88,8 +89,9 @@ impl<T: Default + PyClass + Into<PyClassInitializer<T>>> PyDefault for T {
     }
 }
 
+#[inline(never)]
 pub fn get_empty_pybytes() -> Py<PyBytes> {
-    Python::with_gil(|py| PyBytes::new_bound(py, &[]).unbind())
+    Python::with_gil(|py| PyBytes::new(py, &[]).unbind())
 }
 
 pub fn get_py_default<T: PyDefault>() -> Py<T> {
@@ -97,11 +99,13 @@ pub fn get_py_default<T: PyDefault>() -> Py<T> {
 }
 
 #[must_use]
+#[inline(never)]
 pub fn none_str() -> String {
     String::from("None")
 }
 
 #[must_use]
+#[inline(never)]
 pub const fn bool_to_str(b: bool) -> &'static str {
     if b {
         "True"
@@ -160,7 +164,7 @@ macro_rules! pynamedmodule {
         fn $name(py: Python, m: Bound<PyModule>) -> PyResult<()> {
             $(m.add_class::<$class_name>()?);*;
             $(m.add($var_name, $value)?);*;
-            $(m.add(stringify!($except), py.get_type_bound::<$except>())?);*;
+            $(m.add(stringify!($except), py.get_type::<$except>())?);*;
             Ok(())
         }
     };

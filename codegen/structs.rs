@@ -554,13 +554,13 @@ impl StructBindGenerator {
             self,
             "    fn __match_args__(py: Python) -> Bound<pyo3::types::PyTuple> {"
         );
-        write_str!(self, "        pyo3::types::PyTuple::new_bound(py, [");
+        write_str!(self, "        pyo3::types::PyTuple::new(py, [");
 
         for variable_info in &self.types {
             write_fmt!(self, "            \"{}\",", variable_info.name);
         }
 
-        write_str!(self, "        ])");
+        write_str!(self, "        ]).unwrap()");
         write_str!(self, "    }");
     }
 
@@ -613,14 +613,11 @@ impl StructBindGenerator {
             write_str!(self, "        let offset = flat_t.pack(&mut builder);");
             write_str!(self, "        builder.finish(offset, None);");
             write_str!(self, "");
-            write_str!(
-                self,
-                "        PyBytes::new_bound(py, builder.finished_data())"
-            );
+            write_str!(self, "        PyBytes::new(py, builder.finished_data())");
         } else {
             write_str!(self, "        let item = flat_t.pack();");
             write_str!(self, "");
-            write_str!(self, "        PyBytes::new_bound(py, &item.0)");
+            write_str!(self, "        PyBytes::new(py, &item.0)");
         }
 
         write_str!(self, "    }");
@@ -797,9 +794,7 @@ impl Generator for StructBindGenerator {
             let variable_name = variable_info.name.as_str();
 
             let end = match &variable_info.rust_type {
-                RustType::Vec(InnerVecType::U8) => {
-                    Cow::Borrowed("PyBytes::new_bound(py, &[]).unbind()")
-                }
+                RustType::Vec(InnerVecType::U8) => Cow::Borrowed("PyBytes::new(py, &[]).unbind()"),
                 RustType::Vec(_) => Cow::Borrowed("Vec::new()"),
                 RustType::Option(_, _) => Cow::Borrowed("None"),
                 RustType::Union(inner_type)
@@ -869,7 +864,7 @@ impl Generator for StructBindGenerator {
                 RustType::Vec(InnerVecType::U8) => {
                     write_fmt!(
                         self,
-                        "            {variable_name}: PyBytes::new_bound(py, &flat_t.{variable_name}).unbind(),"
+                        "            {variable_name}: PyBytes::new(py, &flat_t.{variable_name}).unbind(),"
                     )
                 }
                 RustType::Vec(InnerVecType::String | InnerVecType::Base(_)) => {

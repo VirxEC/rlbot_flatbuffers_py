@@ -17,7 +17,7 @@ def random_player_config():
     return PlayerConfiguration(
         variety=Psyonix(PsyonixSkill.AllStar),
         name=random_string(),
-        location=random_string(),
+        root_dir=random_string(),
         run_command=random_string(),
         loadout=PlayerLoadout(
             loadout_paint=LoadoutPaint(),
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     renderPolyLine = RenderMessage(
         PolyLine3D(
             [Vector3() for _ in range(2048)],
-            Color(255),
+            Color(a=255),
         ),
     )
 
