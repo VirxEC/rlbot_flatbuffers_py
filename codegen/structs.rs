@@ -91,7 +91,7 @@ impl StructBindGenerator {
             if (is_frozen && !frozen_needs_py) || is_all_base_types || types.is_empty() {
                 "use crate::{flat_err_to_py, generated::rlbot::flat, FromGil};"
             } else {
-                "use crate::{flat_err_to_py, generated::rlbot::flat, FromGil, IntoGil};"
+                "use crate::{flat_err_to_py, generated::rlbot::flat, FromGil, IntoGil, PyDefault};"
             },
         ));
 
@@ -288,7 +288,9 @@ impl StructBindGenerator {
                     format!("{variable_name}=None")
                 }
                 RustType::Union(_) => {
-                    needs_python = !self.is_frozen;
+                    if !self.is_frozen {
+                        needs_python = true;
+                    }
 
                     format!("{variable_name}=None")
                 }
@@ -296,11 +298,13 @@ impl StructBindGenerator {
                     if self.is_frozen {
                         format!("{variable_name}=Default::default()")
                     } else {
-                        format!("{variable_name}=crate::get_py_default()")
+                        needs_python = !self.is_frozen;
+                        format!("{variable_name}=None")
                     }
                 }
                 RustType::Vec(InnerVecType::U8) => {
-                    format!("{variable_name}=crate::get_empty_pybytes()")
+                    needs_python = true;
+                    format!("{variable_name}=None")
                 }
                 _ => {
                     format!("{variable_name}=Default::default()")
@@ -339,11 +343,11 @@ impl StructBindGenerator {
                     Cow::Owned(format!("Vec<{}>", inner_type))
                 }
                 RustType::Vec(InnerVecType::String) => Cow::Borrowed("Vec<String>"),
-                RustType::Vec(InnerVecType::U8) => Cow::Borrowed("Py<PyBytes>"),
+                RustType::Vec(InnerVecType::U8) => Cow::Borrowed("Option<Py<PyBytes>>"),
                 RustType::Box(inner_type) => Cow::Owned(if self.is_frozen {
                     format!("super::{inner_type}")
                 } else {
-                    format!("Py<super::{inner_type}>")
+                    format!("Option<Py<super::{inner_type}>>")
                 }),
                 RustType::Option(InnerOptionType::BaseType, inner_type)
                 | RustType::Option(InnerOptionType::String, inner_type) => {
@@ -366,7 +370,7 @@ impl StructBindGenerator {
                 RustType::Custom(inner_type) => Cow::Owned(if self.is_frozen {
                     format!("super::{inner_type}")
                 } else {
-                    format!("Py<super::{inner_type}>")
+                    format!("Option<Py<super::{inner_type}>>")
                 }),
                 RustType::Other(inner_type) => Cow::Owned(format!("super::{inner_type}")),
             };
@@ -385,22 +389,38 @@ impl StructBindGenerator {
                     self,
                     "            {variable_name}: {variable_name}.map(|x| x.into_gil(py)),"
                 );
-            } else if let RustType::Union(inner_type) = &variable_info.rust_type {
-                if self.is_frozen {
+                continue;
+            }
+
+            match &variable_info.rust_type {
+                RustType::Union(inner_type) => {
+                    if self.is_frozen {
+                        write_fmt!(
+                            self,
+                            "            {variable_name}: super::{}::new({variable_name}),",
+                            inner_type
+                        );
+                    } else {
+                        write_fmt!(
+                            self,
+                            "            {variable_name}: Py::new(py, super::{}::new({variable_name})).unwrap(),",
+                            inner_type
+                        );
+                    }
+                }
+                RustType::Box(inner_type) | RustType::Custom(inner_type) if !self.is_frozen => {
                     write_fmt!(
                         self,
-                        "            {variable_name}: super::{}::new({variable_name}),",
-                        inner_type
-                    );
-                } else {
-                    write_fmt!(
-                        self,
-                        "            {variable_name}: Py::new(py, super::{}::new({variable_name})).unwrap(),",
-                        inner_type
+                        "            {variable_name}: {variable_name}.unwrap_or_else(|| super::{inner_type}::py_default(py)),",
                     );
                 }
-            } else {
-                write_fmt!(self, "            {variable_name},");
+                RustType::Vec(InnerVecType::U8) => {
+                    write_fmt!(
+                        self,
+                        "            {variable_name}: {variable_name}.unwrap_or_else(|| PyBytes::new(py, &[]).unbind()),"
+                    );
+                }
+                _ => write_fmt!(self, "            {variable_name},"),
             }
         }
 
@@ -723,7 +743,7 @@ impl Generator for StructBindGenerator {
                     "#[derive(Debug, Default, Clone, Copy)]"
                 }
             } else {
-                "#[derive(Debug, Clone)]"
+                "#[derive(Debug)]"
             }
         );
         write_fmt!(self, "pub struct {} {{", self.struct_name);

@@ -14,7 +14,7 @@ pub mod generated;
 #[allow(clippy::enum_variant_names, unused_imports)]
 mod python;
 
-use pyo3::{create_exception, exceptions::PyValueError, prelude::*, types::PyBytes, PyClass};
+use pyo3::{create_exception, exceptions::PyValueError, prelude::*, PyClass};
 use python::*;
 use std::panic::Location;
 
@@ -25,6 +25,7 @@ create_exception!(
     "Invalid FlatBuffer"
 );
 
+#[inline(never)]
 #[track_caller]
 pub fn flat_err_to_py(err: flatbuffers::InvalidFlatbuffer) -> PyErr {
     let caller = Location::caller();
@@ -63,6 +64,7 @@ where
     }
 }
 
+#[inline(never)]
 fn into_py_from<T, U>(py: Python, obj: T) -> Py<U>
 where
     T: IntoGil<U>,
@@ -71,6 +73,7 @@ where
     Py::new(py, obj.into_gil(py)).unwrap()
 }
 
+#[inline(never)]
 fn from_py_into<T, U>(py: Python, obj: &Py<T>) -> U
 where
     T: PyClass,
@@ -89,19 +92,12 @@ impl<T: Default + PyClass + Into<PyClassInitializer<T>>> PyDefault for T {
     }
 }
 
-#[inline(never)]
-pub fn get_empty_pybytes() -> Py<PyBytes> {
-    Python::with_gil(|py| PyBytes::new(py, &[]).unbind())
-}
-
-pub fn get_py_default<T: PyDefault>() -> Py<T> {
-    Python::with_gil(|py| T::py_default(py))
-}
+static NONE_STR: &str = "None";
 
 #[must_use]
 #[inline(never)]
 pub fn none_str() -> String {
-    String::from("None")
+    String::from(NONE_STR)
 }
 
 #[must_use]
@@ -116,14 +112,8 @@ pub const fn bool_to_str(b: bool) -> &'static str {
 
 #[derive(Debug, FromPyObject)]
 pub enum Floats {
-    Flat(Py<Float>),
     Num(f32),
-}
-
-impl Default for Floats {
-    fn default() -> Self {
-        Floats::Flat(get_py_default())
-    }
+    Flat(Py<Float>),
 }
 
 impl FromGil<Floats> for Py<Float> {
@@ -137,14 +127,8 @@ impl FromGil<Floats> for Py<Float> {
 
 #[derive(Debug, FromPyObject)]
 pub enum Bools {
-    Flat(Py<Bool>),
     Num(bool),
-}
-
-impl Default for Bools {
-    fn default() -> Self {
-        Self::Flat(get_py_default())
-    }
+    Flat(Py<Bool>),
 }
 
 impl FromGil<Bools> for Py<Bool> {
