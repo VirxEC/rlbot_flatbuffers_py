@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
     print("Running quick benchmark...")
 
-    num_trials = 60_000
+    num_trials = 10_000
 
     total_make_time = 0
     total_pack_time = 0

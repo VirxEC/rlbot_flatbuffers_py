@@ -44,7 +44,6 @@ impl<T, U> FromGil<T> for U
 where
     U: From<T>,
 {
-    #[inline]
     fn from_gil(_py: Python, obj: T) -> Self {
         Self::from(obj)
     }
@@ -58,7 +57,6 @@ impl<T, U> IntoGil<U> for T
 where
     U: FromGil<T>,
 {
-    #[inline]
     fn into_gil(self, py: Python) -> U {
         U::from_gil(py, self)
     }
@@ -87,17 +85,16 @@ pub trait PyDefault: Sized + PyClass {
 }
 
 impl<T: Default + PyClass + Into<PyClassInitializer<T>>> PyDefault for T {
+    #[inline(never)]
     fn py_default(py: Python) -> Py<Self> {
         Py::new(py, Self::default()).unwrap()
     }
 }
 
-static NONE_STR: &str = "None";
-
 #[must_use]
 #[inline(never)]
 pub fn none_str() -> String {
-    String::from(NONE_STR)
+    String::from("None")
 }
 
 #[must_use]
