@@ -39,7 +39,9 @@ def test_ballpred():
 
     times = []
 
-    ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(960)])
+    ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(120 * 8)])
+
+    print(len(ballPred.pack()))
 
     for _ in range(100_000):
         start = time_ns()
@@ -55,7 +57,41 @@ def test_ballpred():
     print(f"Minimum time per: {min(times) / 1000:.1f}us")
 
 
+def find_slice_at_time(ball_prediction: flat.BallPrediction, game_time: float):
+    """
+    This will find the future position of the ball at the specified time. The returned
+    Slice object will also include the ball's velocity, etc.
+    """
+    start_time = ball_prediction.slices[0].game_seconds
+    approx_index = int(
+        (game_time - start_time) * 120
+    )  # We know that there are 120 slices per second.
+    if 0 <= approx_index < len(ball_prediction.slices):
+        return ball_prediction.slices[approx_index]
+    return None
+
+
+def test_loop():
+    times = []
+
+    ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(120 * 6)])
+
+    for _ in range(100):
+        start = time_ns()
+
+        li = [find_slice_at_time(ballPred, t / 60) for t in range(1, 301)]
+
+        times.append(time_ns() - start)
+
+    print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
+    avg_time_ns = sum(times) / len(times)
+    print(f"Average time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum time per: {min(times) / 1000:.1f}us")
+
+
 if __name__ == "__main__":
     test_gtp()
     print()
     test_ballpred()
+    print()
+    test_loop()
