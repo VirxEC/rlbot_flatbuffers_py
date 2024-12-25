@@ -139,9 +139,11 @@ impl UnionBindGenerator {
             let variable_name = variable_info.name.as_str();
 
             if variable_info.value.is_some() {
-                write_fmt!(self,
+                write_fmt!(
+                    self,
                     "            Some({}Union::{variable_name}(item)) => format!(\"{}({{}})\", item{borrow_str}.__repr__(py)),",
-                    self.struct_name, self.struct_name
+                    self.struct_name,
+                    self.struct_name
                 );
             } else {
                 write_fmt!(

@@ -80,6 +80,15 @@ where
     (&*obj.borrow(py)).into_gil(py)
 }
 
+#[inline(never)]
+fn from_pyany_into<T, U>(py: Python, obj: Bound<PyAny>) -> U
+where
+    T: PyClass,
+    U: for<'a> FromGil<&'a T>,
+{
+    (&*obj.downcast_into::<T>().unwrap().borrow()).into_gil(py)
+}
+
 pub trait PyDefault: Sized + PyClass {
     fn py_default(py: Python) -> Py<Self>;
 }

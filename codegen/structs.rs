@@ -105,7 +105,7 @@ impl StructBindGenerator {
         file_contents.push(Cow::Borrowed(if is_frozen {
             "use pyo3::{pyclass, pymethods, types::PyBytes, Bound, PyResult, Python};"
         } else {
-            "use pyo3::{pyclass, pymethods, types::PyBytes, Bound, Py, PyResult, Python};"
+            "use pyo3::{pyclass, pymethods, types::{PyAnyMethods, PyBytes, PyList, PyListMethods}, Bound, Py, PyResult, Python};"
         }));
 
         file_contents.push(Cow::Borrowed(""));
@@ -306,6 +306,10 @@ impl StructBindGenerator {
                     needs_python = true;
                     format!("{variable_name}=None")
                 }
+                RustType::Vec(InnerVecType::Custom(_)) if !self.is_frozen => {
+                    needs_python = true;
+                    format!("{variable_name}=Vec::new()")
+                }
                 _ => {
                     format!("{variable_name}=Default::default()")
                 }
@@ -409,15 +413,18 @@ impl StructBindGenerator {
                     }
                 }
                 RustType::Box(inner_type) | RustType::Custom(inner_type) if !self.is_frozen => {
-                    write_fmt!(
-                        self,
-                        "            {variable_name}: {variable_name}.unwrap_or_else(|| super::{inner_type}::py_default(py)),",
-                    );
+                    write_fmt!(self, "            {variable_name}: {variable_name}.unwrap_or_else(|| super::{inner_type}::py_default(py)),",);
                 }
                 RustType::Vec(InnerVecType::U8) => {
                     write_fmt!(
                         self,
                         "            {variable_name}: {variable_name}.unwrap_or_else(|| PyBytes::new(py, &[]).unbind()),"
+                    );
+                }
+                RustType::Vec(InnerVecType::Custom(_)) if !self.is_frozen => {
+                    write_fmt!(
+                        self,
+                        "            {variable_name}: PyList::new(py, {variable_name}).unwrap().unbind(),"
                     );
                 }
                 _ => write_fmt!(self, "            {variable_name},"),
@@ -490,16 +497,17 @@ impl StructBindGenerator {
                             write_str!(self, "                .iter()");
                             write_str!(self, "                .map(ToString::to_string)");
                         }
-                        InnerVecType::Custom(_) => {
+                        InnerVecType::Custom(type_name) => {
+                            if !self.is_frozen {
+                                write_str!(self, "                .bind_borrowed(py)");
+                            }
+
                             write_str!(self, "                .iter()");
-                            write_str!(
-                                self,
-                                if self.is_frozen {
-                                    "                .map(|x| x.__repr__(py))"
-                                } else {
-                                    "                .map(|x| x.borrow(py).__repr__(py))"
-                                }
-                            );
+                            if self.is_frozen {
+                                write_str!(self, "                .map(|x| x.__repr__(py))");
+                            } else {
+                                write_fmt!(self, "                .map(|x| x.downcast_into::<super::{type_name}>().unwrap().borrow().__repr__(py))");
+                            }
                         }
                     }
                     write_str!(self, "                .collect::<Vec<String>>()");
@@ -759,7 +767,7 @@ impl Generator for StructBindGenerator {
                     if self.is_frozen {
                         format!("Vec<super::{inner_type}>")
                     } else {
-                        format!("Vec<Py<super::{inner_type}>>")
+                        String::from("Py<PyList>")
                     }
                 }
                 RustType::Box(inner_type) => {
@@ -815,6 +823,9 @@ impl Generator for StructBindGenerator {
 
             let end = match &variable_info.rust_type {
                 RustType::Vec(InnerVecType::U8) => Cow::Borrowed("PyBytes::new(py, &[]).unbind()"),
+                RustType::Vec(InnerVecType::Custom(_)) if !self.is_frozen => {
+                    Cow::Borrowed("PyList::empty(py).unbind()")
+                }
                 RustType::Vec(_) => Cow::Borrowed("Vec::new()"),
                 RustType::Option(_, _) => Cow::Borrowed("None"),
                 RustType::Union(inner_type)
@@ -890,7 +901,7 @@ impl Generator for StructBindGenerator {
                 RustType::Vec(InnerVecType::String | InnerVecType::Base(_)) => {
                     write_fmt!(self, "            {variable_name}: flat_t.{variable_name},")
                 }
-                RustType::Vec(InnerVecType::Custom(_)) => {
+                RustType::Vec(InnerVecType::Custom(type_name)) => {
                     if self.is_frozen {
                         let map_out = if variable_info.frozen_needs_py {
                             "|x| x.into_gil(py)"
@@ -905,7 +916,7 @@ impl Generator for StructBindGenerator {
                     } else {
                         write_fmt!(
                             self,
-                            "            {variable_name}: flat_t.{variable_name}.into_iter().map(|x| crate::into_py_from(py, x)).collect(),",
+                            "            {variable_name}: PyList::new(py, flat_t.{variable_name}.into_iter().map(|x| crate::into_py_from::<_, super::{type_name}>(py, x))).unwrap().unbind(),",
                         )
                     }
                 }
@@ -1041,7 +1052,7 @@ impl Generator for StructBindGenerator {
                     } else {
                         write_fmt!(
                             self,
-                            "            {variable_name}: py_type.{variable_name}.iter().map(|x| crate::from_py_into(py, x)).collect(),",
+                            "            {variable_name}: py_type.{variable_name}.bind_borrowed(py).iter().map(|x| crate::from_pyany_into(py, x)).collect(),",
                         )
                     }
                 }
@@ -1052,7 +1063,10 @@ impl Generator for StructBindGenerator {
                         "crate::from_py_into(py, x)"
                     };
 
-                    write_fmt!(self, "            {variable_name}: py_type.{variable_name}.as_ref().map(|x| Box::new({inner})),");
+                    write_fmt!(
+                        self,
+                        "            {variable_name}: py_type.{variable_name}.as_ref().map(|x| Box::new({inner})),"
+                    );
                 }
                 RustType::Option(InnerOptionType::String, _) => {
                     write_fmt!(

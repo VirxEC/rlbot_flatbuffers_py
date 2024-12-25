@@ -39,7 +39,7 @@ def test_ballpred():
 
     times = []
 
-    ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(120 * 8)])
+    ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(120 * 10)])
 
     print(len(ballPred.pack()))
 
@@ -72,14 +72,51 @@ def find_slice_at_time(ball_prediction: flat.BallPrediction, game_time: float):
 
 
 def test_loop():
-    times = []
-
     ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(120 * 6)])
 
+    start = time_ns()
     for _ in range(100):
+
+        li = []
+        for t in range(1, 301):
+            ball_in_future = find_slice_at_time(ballPred, t / 60)
+            li.append(ball_in_future)
+    print(f"Total time: {(time_ns() - start) / 1_000_000:.3f}ms")
+
+    times = []
+    for _ in range(50_000):
+        start = time_ns()
+
+        li = []
+        for t in range(1, 301):
+            ball_in_future = find_slice_at_time(ballPred, t / 60)
+            li.append(ball_in_future)
+
+        times.append(time_ns() - start)
+
+    print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
+    avg_time_ns = sum(times) / len(times)
+    print(f"Average time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum time per: {min(times) / 1000:.1f}us")
+
+    times = []
+    for _ in range(50_000):
         start = time_ns()
 
         li = [find_slice_at_time(ballPred, t / 60) for t in range(1, 301)]
+
+        times.append(time_ns() - start)
+
+    print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
+    avg_time_ns = sum(times) / len(times)
+    print(f"Average time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum time per: {min(times) / 1000:.1f}us")
+
+    times = []
+    for _ in range(1_000_000):
+        start = time_ns()
+
+        li = list(ballPred.slices[1:602:2])
 
         times.append(time_ns() - start)
 
