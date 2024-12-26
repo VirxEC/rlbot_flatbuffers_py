@@ -35,7 +35,7 @@ def test_gtp():
 
 
 def test_ballpred():
-    print("Testing BallPrediction")
+    print("Testing 10s BallPrediction")
 
     times = []
 
@@ -43,7 +43,29 @@ def test_ballpred():
 
     print(len(ballPred.pack()))
 
-    for _ in range(100_000):
+    for _ in range(40_000):
+        start = time_ns()
+
+        packed = ballPred.pack()
+        flat.BallPrediction.unpack(packed)
+
+        times.append(time_ns() - start)
+
+    print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
+    avg_time_ns = sum(times) / len(times)
+    print(f"Average time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum time per: {min(times) / 1000:.1f}us")
+
+    print()
+    print("Testing 6s BallPrediction")
+
+    times = []
+
+    ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(120 * 6)])
+
+    print(len(ballPred.pack()))
+
+    for _ in range(40_000):
         start = time_ns()
 
         packed = ballPred.pack()
@@ -72,6 +94,8 @@ def find_slice_at_time(ball_prediction: flat.BallPrediction, game_time: float):
 
 
 def test_loop():
+    print("Testing access times")
+
     ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(120 * 6)])
 
     start = time_ns()
@@ -94,6 +118,7 @@ def test_loop():
 
         times.append(time_ns() - start)
 
+    print()
     print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
     avg_time_ns = sum(times) / len(times)
     print(f"Average time per: {avg_time_ns / 1000:.1f}us")
@@ -107,6 +132,7 @@ def test_loop():
 
         times.append(time_ns() - start)
 
+    print()
     print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
     avg_time_ns = sum(times) / len(times)
     print(f"Average time per: {avg_time_ns / 1000:.1f}us")
@@ -120,6 +146,7 @@ def test_loop():
 
         times.append(time_ns() - start)
 
+    print()
     print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
     avg_time_ns = sum(times) / len(times)
     print(f"Average time per: {avg_time_ns / 1000:.1f}us")
@@ -127,8 +154,8 @@ def test_loop():
 
 
 if __name__ == "__main__":
-    test_gtp()
-    print()
+    # test_gtp()
+    # print()
     test_ballpred()
     print()
     test_loop()
