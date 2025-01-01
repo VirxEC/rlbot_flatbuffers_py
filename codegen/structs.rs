@@ -78,8 +78,10 @@ impl StructBindGenerator {
         types: Vec<CustomType>,
     ) -> Option<Self> {
         let is_frozen = PythonBindType::FROZEN_TYPES.contains(&struct_name.as_str());
-        let frozen_needs_py = is_frozen && PythonBindType::FROZEN_NEEDS_PY.contains(&struct_name.as_str());
-        let is_semi_frozen = !is_frozen && PythonBindType::SEMI_FROZEN_TYPES.contains(&struct_name.as_str());
+        let frozen_needs_py =
+            is_frozen && PythonBindType::FROZEN_NEEDS_PY.contains(&struct_name.as_str());
+        let is_semi_frozen =
+            !is_frozen && PythonBindType::SEMI_FROZEN_TYPES.contains(&struct_name.as_str());
 
         let is_all_base_types = types
             .iter()
@@ -730,7 +732,7 @@ impl Generator for StructBindGenerator {
             if self.is_frozen {
                 "#[pyclass(module = \"rlbot_flatbuffers\", subclass, get_all, frozen)]"
             } else if self.is_semi_frozen {
-                "#[pyclass(module = \"rlbot_flatbuffers\", subclass, get_all)]"  
+                "#[pyclass(module = \"rlbot_flatbuffers\", subclass, get_all)]"
             } else if self.types.is_empty() {
                 "#[pyclass(module = \"rlbot_flatbuffers\", subclass, frozen)]"
             } else {
