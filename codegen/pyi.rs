@@ -125,6 +125,17 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                         if variable_type == rust_type {
                             python_types.push(python_type.to_string());
                             write_fmt!(file, "    {variable_name}: {python_type}");
+
+                            if let Some(docs) = variable_info.doc_str.as_ref() {
+                                write_str!(file, "    \"\"\"");
+
+                                for line in docs {
+                                    write_fmt!(file, "    {line}");
+                                }
+
+                                write_str!(file, "    \"\"\"");
+                            }
+
                             continue 'outer;
                         }
                     }
@@ -226,6 +237,16 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                             python_types.push(type_name.to_string());
                             write_fmt!(file, "    {variable_name}: {type_name}");
                         }
+                    }
+
+                    if let Some(docs) = variable_info.doc_str.as_ref() {
+                        write_str!(file, "    \"\"\"");
+
+                        for line in docs {
+                            write_fmt!(file, "    {line}");
+                        }
+
+                        write_str!(file, "    \"\"\"");
                     }
                 }
 

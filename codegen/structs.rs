@@ -42,6 +42,7 @@ pub struct CustomType {
     pub frozen_needs_py: bool,
     pub is_special_base: Option<SpecialBase>,
     pub snake_case_name: String,
+    pub doc_str: Option<Vec<String>>,
 }
 
 pub struct StructBindGenerator {
@@ -153,10 +154,38 @@ impl StructBindGenerator {
         let raw_types: Vec<_> = struct_definition
             .split('\n')
             .filter_map(|s| {
-                s.trim_start_matches(' ')
+                let (name, raw_type) = s
+                    .trim_start_matches(' ')
                     .trim_start_matches("pub ")
                     .trim_end_matches(',')
-                    .split_once(": ")
+                    .split_once(": ")?;
+
+                let var_def = format!("pub fn {name}(");
+                let var_def_pos = contents.find(&var_def).unwrap();
+
+                let mut docs = Vec::new();
+
+                for line in contents[..var_def_pos].lines().rev().skip(2) {
+                    let line = line.trim();
+                    if line.starts_with("///") {
+                        docs.push(line.trim_start_matches("///").trim());
+                    } else {
+                        break;
+                    }
+                }
+
+                let struct_doc_str = if docs.is_empty() {
+                    None
+                } else {
+                    Some(
+                        docs.into_iter()
+                            .map(|s| s.to_string())
+                            .rev()
+                            .collect::<Vec<_>>(),
+                    )
+                };
+
+                Some((name, raw_type, struct_doc_str))
             })
             .collect();
 
@@ -165,10 +194,10 @@ impl StructBindGenerator {
         Some(custom_types)
     }
 
-    fn raw_types_to_custom(raw_types: Vec<(&str, &str)>) -> Vec<CustomType> {
+    fn raw_types_to_custom(raw_types: Vec<(&str, &str, Option<Vec<String>>)>) -> Vec<CustomType> {
         raw_types
             .into_iter()
-            .map(|(name, raw_type)| {
+            .map(|(name, raw_type, doc_str)| {
                 let (rust_type, inner_type) = if raw_type.starts_with("Vec<") {
                     if raw_type == "Vec<u8>" {
                         (RustType::Vec(InnerVecType::U8), None)
@@ -266,6 +295,7 @@ impl StructBindGenerator {
                     frozen_needs_py,
                     is_special_base,
                     snake_case_name: String::new(),
+                    doc_str,
                 }
             })
             .collect()

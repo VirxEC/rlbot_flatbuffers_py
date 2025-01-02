@@ -86,10 +86,9 @@ impl PythonBindType {
 
         let mut docs = Vec::new();
 
-        let binding = contents[..struct_def_pos].to_string();
-        for line in binding.lines().rev() {
+        for line in contents[..struct_def_pos].lines().rev() {
             if line.starts_with("///") {
-                docs.push(line.trim().trim_start_matches("///").trim());
+                docs.push(line.trim_start_matches("///").trim());
             } else {
                 break;
             }
