@@ -1,4 +1,4 @@
-## rlbot-flatbuffers-py
+## rlbot-flatbuffers
 
 A Python module implemented in Rust for serializing and deserializing RLBot's flatbuffers
 
