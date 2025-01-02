@@ -1,6 +1,6 @@
 [package]
 name = "rlbot_flatbuffers"
-version = "0.11.7"
+version = "0.12.0"
 edition = "2021"
 description = "A Python module implemented in Rust for serializing and deserializing RLBot's flatbuffers"
 repository = "https://github.com/VirxEC/rlbot_flatbuffers_py"

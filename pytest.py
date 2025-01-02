@@ -29,7 +29,7 @@ def random_player_config():
 
 def random_script_config():
     return ScriptConfiguration(
-        location=random_string(),
+        root_dir=random_string(),
         run_command=random_string(),
     )
 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     eval(repr(player_info))
     print()
 
-    connection_settings = ConnectionSettings("rlbot/abot", True, close_after_match=True)
+    connection_settings = ConnectionSettings("rlbot/abot", True, close_between_matches=True)
     print(hash(connection_settings))
     print(connection_settings)
     eval(repr(connection_settings))
@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
     print("Running quick benchmark...")
 
-    num_trials = 10_000
+    num_trials = 20_000
 
     total_make_time = 0
     total_pack_time = 0
