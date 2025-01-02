@@ -76,6 +76,16 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
 
                     let variable_type = variable_info.raw_type.as_str();
                     write_fmt!(file, "    {variable_name} = {type_name}({variable_type})");
+
+                    if let Some(docs) = variable_info.doc_str.as_ref() {
+                        write_str!(file, "    \"\"\"");
+
+                        for line in docs {
+                            write_fmt!(file, "    {line}");
+                        }
+
+                        write_str!(file, "    \"\"\"");
+                    }
                 }
 
                 write_str!(file, "");

@@ -6,6 +6,7 @@ pub struct CustomEnumType {
     pub raw_type: String,
     pub value: Option<String>,
     pub snake_case_name: String,
+    pub doc_str: Option<Vec<String>>,
 }
 
 fn camel_to_snake_case(variable_name: &str) -> String {
@@ -79,14 +80,17 @@ impl EnumBindGenerator {
         })
     }
 
-    pub fn raw_types_to_custom(raw_types: Vec<(&str, &str)>) -> Vec<CustomEnumType> {
+    pub fn raw_types_to_custom(
+        raw_types: Vec<(&str, &str, Option<Vec<String>>)>,
+    ) -> Vec<CustomEnumType> {
         raw_types
             .into_iter()
-            .map(|(name, raw_type)| CustomEnumType {
+            .map(|(name, raw_type, doc_str)| CustomEnumType {
                 name: name.to_string(),
                 raw_type: raw_type.to_string(),
                 value: None,
                 snake_case_name: String::new(),
+                doc_str,
             })
             .collect()
     }
@@ -103,6 +107,7 @@ impl EnumBindGenerator {
         let mut file_line_start = struct_pos + impl_pos + impl_definition.len();
         let mut lines = contents[file_line_start..].split('\n');
         let mut types = Vec::new();
+        let mut docs = Vec::new();
 
         loop {
             let line = lines.next()?;
@@ -112,8 +117,15 @@ impl EnumBindGenerator {
                 break;
             }
 
+            if line_trim.starts_with("///") {
+                docs.push(line_trim.trim_start_matches("///").trim().to_string());
+                file_line_start += line.len();
+                continue;
+            }
+
             if line_trim.starts_with("//") {
                 file_line_start += line.len();
+                docs.clear();
                 continue;
             }
 
@@ -129,7 +141,16 @@ impl EnumBindGenerator {
                 .trim_start_matches("Self(")
                 .trim_end_matches(')');
 
-            types.push((variable_name, variable_value));
+            let docs = if docs.is_empty() {
+                None
+            } else {
+                let docs_copy = docs.clone();
+                docs.clear();
+
+                Some(docs_copy)
+            };
+
+            types.push((variable_name, variable_value, docs));
 
             file_line_start += line.len();
         }
