@@ -16,7 +16,7 @@ mod python;
 
 use pyo3::{create_exception, exceptions::PyValueError, prelude::*, PyClass};
 use python::*;
-use std::panic::Location;
+use std::{panic::Location, path::MAIN_SEPARATOR};
 
 create_exception!(
     rlbot_flatbuffers,
@@ -30,7 +30,7 @@ create_exception!(
 pub fn flat_err_to_py(err: flatbuffers::InvalidFlatbuffer) -> PyErr {
     let caller = Location::caller();
     let err_msg = format!(
-        "Can't make flatbuffer @ \"rlbot_flatbuffers/{}\":\n  {err}",
+        "Can't make flatbuffer @ \"rlbot_flatbuffers{MAIN_SEPARATOR}{}\":\n  {err}",
         caller.file()
     );
     InvalidFlatbuffer::new_err(err_msg)
