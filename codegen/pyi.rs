@@ -105,6 +105,16 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                 write_str!(file, "    def __hash__(self) -> str: ...");
             }
             PythonBindType::Struct(gen) => {
+                if let Some(docs) = gen.struct_doc_str.as_ref() {
+                    write_str!(file, "    \"\"\"");
+
+                    for line in docs {
+                        write_fmt!(file, "    {line}");
+                    }
+
+                    write_str!(file, "    \"\"\"");
+                }
+
                 let mut python_types = Vec::new();
 
                 'outer: for variable_info in &gen.types {

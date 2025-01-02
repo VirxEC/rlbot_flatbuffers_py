@@ -48,6 +48,7 @@ pub struct StructBindGenerator {
     pub filename: String,
     pub struct_name: String,
     struct_t_name: String,
+    pub struct_doc_str: Option<Vec<String>>,
     pub types: Vec<CustomType>,
     file_contents: Vec<Cow<'static, str>>,
     has_complex_pack: bool,
@@ -74,6 +75,7 @@ impl StructBindGenerator {
         filename: String,
         struct_name: String,
         struct_t_name: String,
+        struct_doc_str: Option<Vec<String>>,
         contents: String,
         types: Vec<CustomType>,
     ) -> Option<Self> {
@@ -118,6 +120,7 @@ impl StructBindGenerator {
             filename,
             struct_name,
             struct_t_name,
+            struct_doc_str,
             types,
             file_contents,
             has_complex_pack,

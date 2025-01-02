@@ -81,11 +81,37 @@ impl PythonBindType {
         #[cfg(windows)]
         let contents = contents.replace("\r\n", "\n");
 
+        let struct_def = format!("pub struct {struct_name}");
+        let struct_def_pos = contents.find(&struct_def).unwrap();
+
+        let mut docs = Vec::new();
+
+        let binding = contents[..struct_def_pos].to_string();
+        for line in binding.lines().rev() {
+            if line.starts_with("///") {
+                docs.push(line.trim().trim_start_matches("///").trim());
+            } else {
+                break;
+            }
+        }
+
+        let struct_doc_str = if docs.is_empty() {
+            None
+        } else {
+            Some(
+                docs.into_iter()
+                    .map(|s| s.to_string())
+                    .rev()
+                    .collect::<Vec<_>>(),
+            )
+        };
+
         if let Some(types) = StructBindGenerator::get_types(&contents, &struct_t_name) {
             return Some(Self::Struct(StructBindGenerator::new(
                 filename.to_string(),
                 struct_name,
                 struct_t_name,
+                struct_doc_str,
                 contents,
                 types,
             )?));
