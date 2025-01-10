@@ -121,12 +121,12 @@ if __name__ == "__main__":
     except InvalidFlatbuffer as e:
         print(e)
 
-    match_settings = MatchSettings(
-        game_path=random_string(),
+    match_settings = MatchConfiguration(
+        launcher_arg=random_string(),
         game_map_upk=random_string(),
         player_configurations=[random_player_config() for _ in range(128)],
         script_configurations=[random_script_config() for _ in range(8)],
-        mutator_settings=MutatorSettings(),
+        mutators=MutatorSettings(),
     )
 
     data = match_settings.pack()
@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     print()
 
-    ballPred = BallPrediction([PredictionSlice(1) for _ in range(5 * 120)])
+    ballPred = BallPrediction([PredictionSlice(1) for _ in range(6 * 120)])
     data = ballPred.pack()
     print(f"BallPrediction size: {len(data)} bytes")
 

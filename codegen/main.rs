@@ -1,3 +1,5 @@
+#![allow(clippy::literal_string_with_formatting_args)]
+
 mod class_inject;
 mod enums;
 mod generator;
@@ -37,7 +39,7 @@ impl PythonBindType {
         "SphereShape",
         "CylinderShape",
         "BoostPadState",
-        "GameInfo",
+        "MatchInfo",
         "TeamInfo",
         "Physics",
         "Vector2",
@@ -184,8 +186,9 @@ fn mod_rs_generator(type_data: &[PythonBindType]) -> io::Result<()> {
 
 fn run_flatc() -> io::Result<()> {
     println!("cargo:rerun-if-changed=flatbuffers-schema/comms.fbs");
-    println!("cargo:rerun-if-changed=flatbuffers-schema/gamestate.fbs");
-    println!("cargo:rerun-if-changed=flatbuffers-schema/matchstart.fbs");
+    println!("cargo:rerun-if-changed=flatbuffers-schema/gamedata.fbs");
+    println!("cargo:rerun-if-changed=flatbuffers-schema/gamestatemanip.fbs");
+    println!("cargo:rerun-if-changed=flatbuffers-schema/matchconfig.fbs");
     println!("cargo:rerun-if-changed=flatbuffers-schema/rendering.fbs");
     println!("cargo:rerun-if-changed=flatbuffers-schema/rlbot.fbs");
 
