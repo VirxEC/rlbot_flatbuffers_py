@@ -153,9 +153,64 @@ def test_loop():
     print(f"Minimum time per: {min(times) / 1000:.1f}us")
 
 
+def test_renders():
+    print("Testing rendering")
+
+    times = []
+
+    for _ in range(20_000):
+        start = time_ns()
+
+        renders = [
+            flat.RenderMessage(
+                flat.Line3D(
+                    flat.RenderAnchor(world=flat.Vector3(0, 0, 0)),
+                    flat.RenderAnchor(
+                        relative=flat.CarAnchor(0, flat.Vector3(1, 1, 1))
+                    ),
+                    flat.Color(255, a=150),
+                )
+            ),
+            flat.RenderMessage(
+                flat.Line3D(
+                    flat.RenderAnchor(world=flat.Vector3(0, 0, 0)),
+                    flat.RenderAnchor(
+                        relative=flat.CarAnchor(0, flat.Vector3(1, 1, 1))
+                    ),
+                    flat.Color(255, a=150),
+                )
+            ),
+            flat.RenderMessage(
+                flat.Line3D(
+                    flat.RenderAnchor(world=flat.Vector3(0, 0, 0)),
+                    flat.RenderAnchor(
+                        relative=flat.CarAnchor(0, flat.Vector3(1, 1, 1))
+                    ),
+                    flat.Color(255, a=150),
+                )
+            ),
+            flat.RenderMessage(
+                flat.String3D(
+                    "Hello, world!", flat.RenderAnchor(world=flat.Vector3(0, 0, 0)), 1
+                )
+            ),
+        ]
+
+        render_group = flat.RenderGroup(renders)
+        render_group.pack()
+
+        times.append(time_ns() - start)
+
+    avg_time_ns = sum(times) / len(times)
+    print(f"Average time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum time per: {min(times) / 1000:.1f}us")
+
+
 if __name__ == "__main__":
-    test_gtp()
-    print()
-    test_ballpred()
-    print()
-    test_loop()
+    # test_gtp()
+    # print()
+    # test_ballpred()
+    # print()
+    # test_loop()
+    # print()
+    test_renders()

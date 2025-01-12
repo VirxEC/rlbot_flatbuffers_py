@@ -43,25 +43,25 @@ if __name__ == "__main__":
     eval(repr(player_info))
     print()
 
-    connection_settings = ConnectionSettings("rlbot/abot", True, close_between_matches=True)
+    connection_settings = ConnectionSettings(
+        "rlbot/abot", True, close_between_matches=True
+    )
     print(hash(connection_settings))
     print(connection_settings)
     eval(repr(connection_settings))
     print()
 
-    dgs = DesiredGameState(
-        game_info_state=DesiredGameInfoState(game_speed=2, end_match=Bool())
-    )
+    dgs = DesiredGameState(match_info=DesiredMatchInfo(game_speed=2))
 
-    match dgs.game_info_state:
-        case DesiredGameInfoState():
-            dgs.game_info_state.world_gravity_z = Float(-650)
+    match dgs.match_info:
+        case DesiredMatchInfo():
+            dgs.match_info.world_gravity_z = Float(-650)
         case _:
             assert False
 
-    match dgs.game_info_state.end_match:
-        case Bool(val):
-            dgs.game_info_state.end_match.val = not val
+    match dgs.match_info.game_speed:
+        case Float(val):
+            dgs.match_info.game_speed.val = not val
         case _:
             assert False
 
@@ -190,9 +190,7 @@ if __name__ == "__main__":
                 )
                 for _ in range(16)
             ],
-            game_info_state=DesiredGameInfoState(
-                game_speed=1, world_gravity_z=-650, end_match=True
-            ),
+            match_info=DesiredMatchInfo(game_speed=1, world_gravity_z=-650),
             console_commands=[ConsoleCommand("dump_items")],
         )
         total_make_time += time_ns() - start
