@@ -192,7 +192,6 @@ pynamedmodule! {
         CylinderShape,
         DemolishMutator,
         DesiredBallState,
-        DesiredBoostState,
         DesiredCarState,
         DesiredGameState,
         DesiredMatchInfo,

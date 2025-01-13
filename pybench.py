@@ -207,10 +207,10 @@ def test_renders():
 
 
 if __name__ == "__main__":
-    # test_gtp()
-    # print()
-    # test_ballpred()
-    # print()
-    # test_loop()
-    # print()
+    test_gtp()
+    print()
+    test_ballpred()
+    print()
+    test_loop()
+    print()
     test_renders()
