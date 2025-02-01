@@ -149,7 +149,7 @@ impl FromGil<Bools> for Py<Bool> {
 macro_rules! pynamedmodule {
     (doc: $doc:literal, name: $name:tt, classes: [$($class_name:ident),*], vars: [$(($var_name:literal, $value:expr)),*], exceptions: [$($except:expr),*]) => {
         #[doc = $doc]
-        #[pymodule]
+        #[pymodule(gil_used = false)]
         #[allow(redundant_semicolons)]
         fn $name(py: Python, m: Bound<PyModule>) -> PyResult<()> {
             $(m.add_class::<$class_name>()?);*;

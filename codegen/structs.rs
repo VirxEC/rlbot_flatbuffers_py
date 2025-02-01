@@ -614,45 +614,55 @@ impl StructBindGenerator {
         write_str!(self, "    }");
     }
 
-    fn generate_long_match_args(&mut self) {
-        write_str!(self, "    #[classattr]");
-        write_str!(
-            self,
-            "    fn __match_args__(py: Python) -> Bound<pyo3::types::PyTuple> {"
-        );
-        write_str!(self, "        pyo3::types::PyTuple::new(py, [");
+    fn generate_long_args(&mut self) {
+        let funcs = ["match_args", "slots"];
+        // let funcs = ["match_args"];
 
-        for variable_info in &self.types {
-            write_fmt!(self, "            \"{}\",", variable_info.name);
+        for func in funcs {
+            write_str!(self, "    #[classattr]");
+            write_fmt!(
+                self,
+                "    fn __{func}__(py: Python) -> Bound<pyo3::types::PyTuple> {{"
+            );
+            write_str!(self, "        pyo3::types::PyTuple::new(py, [");
+    
+            for variable_info in &self.types {
+                write_fmt!(self, "            \"{}\",", variable_info.name);
+            }
+    
+            write_str!(self, "        ]).unwrap()");
+            write_str!(self, "    }\n");
         }
-
-        write_str!(self, "        ]).unwrap()");
-        write_str!(self, "    }");
     }
 
-    fn generate_match_args(&mut self) {
+    fn generate_args(&mut self) {
         if self.types.is_empty() {
             return;
         }
 
         if self.types.len() > 12 {
-            self.generate_long_match_args();
+            self.generate_long_args();
             return;
         }
 
         let sig_parts: Vec<_> = repeat("&'static str").take(self.types.len()).collect();
         let sig = sig_parts.join(", ");
 
-        write_str!(self, "    #[classattr]");
-        write_fmt!(self, "    fn __match_args__() -> ({sig},) {{",);
-        write_str!(self, "        (");
+        let funcs = ["match_args", "slots"];
+        // let funcs = ["match_args"];
 
-        for variable_info in &self.types {
-            write_fmt!(self, "            \"{}\",", variable_info.name);
+        for func in funcs {
+            write_str!(self, "    #[classattr]");
+            write_fmt!(self, "    fn __{func}__() -> ({sig},) {{",);
+            write_str!(self, "        (");
+    
+            for variable_info in &self.types {
+                write_fmt!(self, "            \"{}\",", variable_info.name);
+            }
+    
+            write_str!(self, "        )");
+            write_str!(self, "    }\n");
         }
-
-        write_str!(self, "        )");
-        write_str!(self, "    }");
     }
 
     fn generate_pack_method(&mut self) {
@@ -1186,8 +1196,7 @@ impl Generator for StructBindGenerator {
         self.generate_repr_method();
         write_str!(self, "");
 
-        self.generate_match_args();
-        write_str!(self, "");
+        self.generate_args();
 
         self.generate_pack_method();
         write_str!(self, "");
