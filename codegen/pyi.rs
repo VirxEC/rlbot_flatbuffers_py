@@ -56,15 +56,16 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                     .map(|variable_info| variable_info.name.as_str())
                     .filter(|variable_name| *variable_name != "NONE")
                     .collect::<Vec<_>>();
+                let default_value = types.first().unwrap();
                 let union_str = types.join(" | ");
 
-                write_fmt!(file, "    item: Optional[{union_str}]");
+                write_fmt!(file, "    item: {union_str}");
                 write_str!(file, "");
                 write_str!(file, "    def __new__(");
-                write_fmt!(file, "        cls, item: Optional[{union_str}] = None");
+                write_fmt!(file, "        cls, item: {union_str} = {default_value}()");
                 write_str!(file, "    ): ...");
                 write_str!(file, "    def __init__(");
-                write_fmt!(file, "        self, item: Optional[{union_str}] = None");
+                write_fmt!(file, "        self, item: {union_str} = {default_value}()");
                 write_str!(file, "    ): ...\n");
             }
             PythonBindType::Enum(gen) => {
@@ -228,8 +229,7 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                                     _ => None,
                                 })
                                 .unwrap();
-                            let types = union_types.join(" | ");
-                            python_types.push(format!("Optional[{types}]"));
+                            python_types.push(union_types.join(" | "));
                         }
                         RustType::Custom(type_name)
                         | RustType::Other(type_name)
@@ -284,6 +284,8 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                                         || t.starts_with("Option<")
                                     {
                                         Cow::Borrowed("None")
+                                    } else if let Some(pos) = python_type.find('|') {
+                                        Cow::Owned(format!("{}()", &python_type[..pos - 1]))
                                     } else if t.starts_with("Vec<") {
                                         Cow::Borrowed("[]")
                                     } else if t.starts_with("Box<") {

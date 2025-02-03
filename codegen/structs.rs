@@ -404,12 +404,11 @@ impl StructBindGenerator {
                 RustType::Union(inner_type) => {
                     write_fmt!(
                         self,
-                        "            {variable_name}: Py::new(py, super::{}::new({variable_name})).unwrap(),",
-                        inner_type
+                        "            {variable_name}: {variable_name}.map(|u| Py::new(py, super::{inner_type}::new(u)).unwrap()).unwrap_or_else(|| super::{inner_type}::py_default(py)),"
                     );
                 }
                 RustType::Box(inner_type) | RustType::Custom(inner_type) => {
-                    write_fmt!(self, "            {variable_name}: {variable_name}.unwrap_or_else(|| super::{inner_type}::py_default(py)),",);
+                    write_fmt!(self, "            {variable_name}: {variable_name}.unwrap_or_else(|| super::{inner_type}::py_default(py)),");
                 }
                 RustType::Vec(InnerVecType::U8) => {
                     write_fmt!(
