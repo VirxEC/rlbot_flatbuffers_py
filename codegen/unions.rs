@@ -50,12 +50,6 @@ impl UnionBindGenerator {
     fn generate_new_method(&mut self) {
         assert!(u8::try_from(self.types.len()).is_ok());
 
-        let item_str = if self.is_frozen {
-            "Bound::new(py, *item).unwrap().into_any()"
-        } else {
-            "item.clone_ref(py).into_any()"
-        };
-
         write_str!(self, "    #[new]");
         write_str!(self, "    #[pyo3(signature = (item = None))]");
         write_fmt!(
@@ -68,17 +62,10 @@ impl UnionBindGenerator {
         write_str!(self, "");
         write_str!(self, "    #[getter(item)]");
 
-        if self.is_frozen {
-            write_str!(
-                self,
-                "    pub fn get<'a>(&self, py: Python<'a>) -> Option<Bound<'a, PyAny>> {"
-            );
-        } else {
-            write_str!(
-                self,
-                "    pub fn get(&self, py: Python) -> Option<Py<PyAny>> {"
-            );
-        }
+        write_str!(
+            self,
+            "    pub fn get(&self, py: Python) -> Option<Py<PyAny>> {"
+        );
         write_str!(self, "        match self.item.as_ref() {");
 
         for variable_info in &self.types {
@@ -89,7 +76,7 @@ impl UnionBindGenerator {
             } else {
                 write_fmt!(
                     self,
-                    "            Some({}Union::{variable_name}(item)) => Some({item_str}),",
+                    "            Some({}Union::{variable_name}(item)) => Some(item.clone_ref(py).into_any()),",
                     self.struct_name
                 );
             }
@@ -109,15 +96,13 @@ impl UnionBindGenerator {
         write_str!(self, "    pub fn inner_repr(&self, py: Python) -> String {");
         write_str!(self, "        match self.item.as_ref() {");
 
-        let borrow_str = if self.is_frozen { "" } else { ".borrow(py)" };
-
         for variable_info in &self.types {
             let variable_name = variable_info.name.as_str();
 
             if variable_info.value.is_some() {
                 write_fmt!(
                     self,
-                    "            Some({}Union::{variable_name}(item)) => item{borrow_str}.__repr__(py),",
+                    "            Some({}Union::{variable_name}(item)) => item.borrow(py).__repr__(py),",
                     self.struct_name
                 );
             } else {
@@ -133,15 +118,13 @@ impl UnionBindGenerator {
         write_str!(self, "    pub fn __repr__(&self, py: Python) -> String {");
         write_str!(self, "        match self.item.as_ref() {");
 
-        let borrow_str = if self.is_frozen { "" } else { ".borrow(py)" };
-
         for variable_info in &self.types {
             let variable_name = variable_info.name.as_str();
 
             if variable_info.value.is_some() {
                 write_fmt!(
                     self,
-                    "            Some({}Union::{variable_name}(item)) => format!(\"{}({{}})\", item{borrow_str}.__repr__(py)),",
+                    "            Some({}Union::{variable_name}(item)) => format!(\"{}({{}})\", item.borrow(py).__repr__(py)),",
                     self.struct_name,
                     self.struct_name
                 );
@@ -194,18 +177,13 @@ impl Generator for UnionBindGenerator {
     }
 
     fn generate_definition(&mut self) {
-        let clone_str = if self.is_frozen { ", Clone" } else { "" };
-        write_fmt!(self, "#[derive(Debug{clone_str}, pyo3::FromPyObject)]");
+        write_fmt!(self, "#[derive(Debug, pyo3::FromPyObject)]");
         write_fmt!(self, "pub enum {}Union {{", self.struct_name);
 
         for variable_info in self.types.iter().skip(1) {
             let variable_name = variable_info.name.as_str();
 
-            if self.is_frozen {
-                write_fmt!(self, "    {variable_name}(super::{variable_name}),");
-            } else {
-                write_fmt!(self, "    {variable_name}(Py<super::{variable_name}>),");
-            }
+            write_fmt!(self, "    {variable_name}(Py<super::{variable_name}>),");
         }
 
         write_str!(self, "}");
@@ -217,7 +195,7 @@ impl Generator for UnionBindGenerator {
             write_str!(self, "#[pyclass(module = \"rlbot_flatbuffers\")]");
         }
 
-        write_fmt!(self, "#[derive(Debug, Default{clone_str})]");
+        write_fmt!(self, "#[derive(Debug, Default)]");
         write_fmt!(self, "pub struct {} {{", self.struct_name);
 
         if !self.is_frozen {
@@ -230,21 +208,15 @@ impl Generator for UnionBindGenerator {
     }
 
     fn generate_from_flat_impls(&mut self) {
-        let (trait_name, fn_name, python_arg) = if self.is_frozen {
-            ("From", "from", "")
-        } else {
-            ("FromGil", "from_gil", "py: Python, ")
-        };
-
         write_fmt!(
             self,
-            "impl {trait_name}<flat::{}> for {} {{",
+            "impl FromGil<flat::{}> for {} {{",
             self.struct_t_name,
             self.struct_name
         );
         write_fmt!(
             self,
-            "    fn {fn_name}({python_arg}flat_t: flat::{}) -> Self {{",
+            "    fn from_gil(py: Python, flat_t: flat::{}) -> Self {{",
             self.struct_t_name
         );
 
@@ -274,17 +246,10 @@ impl Generator for UnionBindGenerator {
                     self.struct_name
                 );
 
-                if self.is_frozen {
-                    write_fmt!(
-                        self,
-                        "                    super::{variable_name}::from(*item),"
-                    );
-                } else {
-                    write_fmt!(
-                        self,
-                        "                    Py::new(py, super::{variable_name}::from_gil(py, *item)).unwrap(),"
-                    );
-                }
+                write_fmt!(
+                    self,
+                    "                    Py::new(py, super::{variable_name}::from_gil(py, *item)).unwrap(),"
+                );
 
                 write_fmt!(self, "                )),");
                 write_fmt!(self, "            }},");
@@ -298,21 +263,15 @@ impl Generator for UnionBindGenerator {
     }
 
     fn generate_to_flat_impls(&mut self) {
-        let (trait_name, fn_name, python_arg) = if self.is_frozen {
-            ("From", "from", "")
-        } else {
-            ("FromGil", "from_gil", "py: Python, ")
-        };
-
         write_fmt!(
             self,
-            "impl {trait_name}<&{}> for flat::{} {{",
+            "impl FromGil<&{}> for flat::{} {{",
             self.struct_name,
             self.struct_t_name
         );
         write_fmt!(
             self,
-            "    fn {fn_name}({python_arg}py_type: &{}) -> Self {{",
+            "    fn from_gil(py: Python, py_type: &{}) -> Self {{",
             self.struct_name
         );
 
@@ -328,19 +287,11 @@ impl Generator for UnionBindGenerator {
                     self.struct_name,
                 );
 
-                if self.is_frozen {
-                    write_fmt!(
-                        self,
-                        "                flat::{}::{variable_name}(Box::new(item.into()))",
-                        self.struct_t_name
-                    );
-                } else {
-                    write_fmt!(
-                        self,
-                        "                flat::{}::{variable_name}(Box::new(crate::from_py_into(py, item)))",
-                        self.struct_t_name
-                    );
-                }
+                write_fmt!(
+                    self,
+                    "                flat::{}::{variable_name}(Box::new(crate::from_py_into(py, item)))",
+                    self.struct_t_name
+                );
 
                 write_str!(self, "            },");
             } else {

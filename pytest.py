@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     match dgs.match_info.game_speed:
         case Float(val):
-            dgs.match_info.game_speed.val = not val
+            dgs.match_info.game_speed.val = val + 1
         case _:
             assert False
 

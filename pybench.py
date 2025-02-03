@@ -1,3 +1,4 @@
+from threading import Thread
 from time import time_ns
 
 import rlbot_flatbuffers as flat
@@ -16,7 +17,9 @@ def test_gtp():
         teams=[flat.TeamInfo() for _ in range(2)],
     )
 
-    for _ in range(20_000):
+    print(len(gtp.pack()))
+
+    for _ in range(30_000):
         start = time_ns()
         packed = gtp.pack()
         pack_times.append(time_ns() - start)
@@ -24,6 +27,8 @@ def test_gtp():
         start = time_ns()
         flat.GamePacket.unpack(packed)
         unpack_times.append(time_ns() - start)
+
+    print(f"Total time: {(sum(pack_times) + sum(unpack_times)) / 1_000_000_000:.3f}s")
 
     avg_time_ns = sum(pack_times) / len(pack_times)
     print(f"Average pack time per: {avg_time_ns / 1000:.1f}us")
@@ -37,46 +42,60 @@ def test_gtp():
 def test_ballpred():
     print("Testing 10s BallPrediction")
 
-    times = []
+    pack_times = []
+    unpack_times = []
 
     ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(120 * 10)])
 
     print(len(ballPred.pack()))
 
-    for _ in range(40_000):
+    for _ in range(10_000):
         start = time_ns()
-
         packed = ballPred.pack()
+        pack_times.append(time_ns() - start)
+
+        start = time_ns()
         flat.BallPrediction.unpack(packed)
+        unpack_times.append(time_ns() - start)
 
-        times.append(time_ns() - start)
+    print(f"Total time: {(sum(pack_times) + sum(unpack_times)) / 1_000_000_000:.3f}s")
 
-    print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
-    avg_time_ns = sum(times) / len(times)
-    print(f"Average time per: {avg_time_ns / 1000:.1f}us")
-    print(f"Minimum time per: {min(times) / 1000:.1f}us")
+    avg_time_ns = sum(pack_times) / len(pack_times)
+    print(f"Average pack time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum pack time per: {min(pack_times) / 1000:.1f}us")
+
+    avg_time_ns = sum(unpack_times) / len(unpack_times)
+    print(f"Average unpack time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum unpack time per: {min(unpack_times) / 1000:.1f}us")
 
     print()
     print("Testing 6s BallPrediction")
 
-    times = []
+    pack_times = []
+    unpack_times = []
 
     ballPred = flat.BallPrediction([flat.PredictionSlice(1) for _ in range(120 * 6)])
 
     print(len(ballPred.pack()))
 
-    for _ in range(40_000):
+    for _ in range(10_000):
         start = time_ns()
-
         packed = ballPred.pack()
+        pack_times.append(time_ns() - start)
+
+        start = time_ns()
         flat.BallPrediction.unpack(packed)
+        unpack_times.append(time_ns() - start)
 
-        times.append(time_ns() - start)
+    print(f"Total time: {(sum(pack_times) + sum(unpack_times)) / 1_000_000_000:.3f}s")
 
-    print(f"Total time: {sum(times) / 1_000_000_000:.3f}s")
-    avg_time_ns = sum(times) / len(times)
-    print(f"Average time per: {avg_time_ns / 1000:.1f}us")
-    print(f"Minimum time per: {min(times) / 1000:.1f}us")
+    avg_time_ns = sum(pack_times) / len(pack_times)
+    print(f"Average pack time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum pack time per: {min(pack_times) / 1000:.1f}us")
+
+    avg_time_ns = sum(unpack_times) / len(unpack_times)
+    print(f"Average unpack time per: {avg_time_ns / 1000:.1f}us")
+    print(f"Minimum unpack time per: {min(unpack_times) / 1000:.1f}us")
 
 
 def find_slice_at_time(ball_prediction: flat.BallPrediction, game_time: float):
@@ -206,6 +225,18 @@ def test_renders():
     print(f"Minimum time per: {min(times) / 1000:.1f}us")
 
 
+def test_threaded(func):
+    threads = []
+
+    for _ in range(4):
+        t = Thread(target=func)
+        t.start()
+        threads.append(t)
+    
+    for t in threads:
+        t.join()
+
+
 if __name__ == "__main__":
     test_gtp()
     print()
@@ -214,3 +245,11 @@ if __name__ == "__main__":
     test_loop()
     print()
     test_renders()
+
+    # print("testing functions for thread safety")
+
+    # funcs = [test_gtp, test_ballpred, test_loop, test_renders]
+
+    # for func in funcs:
+    #     test_threaded(func)
+    #     print()

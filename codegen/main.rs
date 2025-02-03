@@ -27,7 +27,7 @@ pub enum PythonBindType {
 
 impl PythonBindType {
     pub const BASE_TYPES: [&'static str; 6] = ["bool", "i32", "u32", "f32", "String", "u8"];
-    pub const FROZEN_TYPES: [&'static str; 19] = [
+    pub const FROZEN_TYPES: [&'static str; 21] = [
         "GoalInfo",
         "GamePacket",
         "PlayerInfo",
@@ -47,9 +47,9 @@ impl PythonBindType {
         "ControllableTeamInfo",
         "BoostPad",
         "PredictionSlice",
+        "FieldInfo",
+        "BallPrediction",
     ];
-    pub const SEMI_FROZEN_TYPES: [&'static str; 2] = ["FieldInfo", "BallPrediction"];
-    pub const FROZEN_NEEDS_PY: [&'static str; 3] = ["GamePacket", "BallInfo", "CollisionShape"];
     pub const UNIONS: [&'static str; 4] = [
         "PlayerClass",
         "CollisionShape",

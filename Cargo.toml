@@ -1,6 +1,6 @@
 [package]
 name = "rlbot_flatbuffers"
-version = "0.13.1"
+version = "0.13.2"
 edition = "2021"
 description = "A Python module implemented in Rust for serializing and deserializing RLBot's flatbuffers"
 repository = "https://github.com/VirxEC/rlbot_flatbuffers_py"
@@ -24,6 +24,9 @@ flatbuffers = "=24.12.23"
 # get-size appears to be unmaintained but it's too useful here
 # forked and updated deps
 get-size = { git = "https://github.com/VirxEC/get-size", branch = "update", features = ["derive"] }
+
+[profile.dev]
+opt-level = 2
 
 [profile.release]
 lto = true

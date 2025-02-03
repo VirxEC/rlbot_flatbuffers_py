@@ -14,7 +14,7 @@ pub mod generated;
 #[allow(clippy::enum_variant_names, clippy::useless_conversion, unused_imports)]
 mod python;
 
-use pyo3::{create_exception, exceptions::PyValueError, prelude::*, PyClass};
+use pyo3::{create_exception, exceptions::PyValueError, prelude::*, types::*, PyClass};
 use python::*;
 use std::{panic::Location, path::MAIN_SEPARATOR};
 
@@ -102,6 +102,24 @@ impl<T: Default + PyClass + Into<PyClassInitializer<T>>> PyDefault for T {
 
 #[must_use]
 #[inline(never)]
+pub fn pyfloat_default(py: Python) -> Py<PyFloat> {
+    PyFloat::new(py, 0.0).unbind()
+}
+
+#[must_use]
+#[inline(never)]
+pub fn float_to_py(py: Python, num: f32) -> Py<PyFloat> {
+    PyFloat::new(py, num as f64).unbind()
+}
+
+#[must_use]
+#[inline(never)]
+pub fn float_from_py(py: Python, num: &Py<PyFloat>) -> f32 {
+    num.bind(py).value() as f32
+}
+
+#[must_use]
+#[inline(never)]
 pub fn none_str() -> String {
     String::from("None")
 }
@@ -116,32 +134,38 @@ pub const fn bool_to_str(b: bool) -> &'static str {
     }
 }
 
-#[derive(Debug, FromPyObject)]
-pub enum Floats {
-    Num(f32),
+#[derive(FromPyObject)]
+pub enum PartFloats {
+    Float(f64),
     Flat(Py<Float>),
 }
 
-impl FromGil<Floats> for Py<Float> {
-    fn from_gil(py: Python, floats: Floats) -> Self {
+impl FromGil<PartFloats> for Py<Float> {
+    fn from_gil(py: Python, floats: PartFloats) -> Self {
         match floats {
-            Floats::Flat(float) => float,
-            Floats::Num(num) => Py::new(py, Float::new(num)).unwrap(),
+            PartFloats::Float(num) => Py::new(
+                py,
+                Float {
+                    val: PyFloat::new(py, num).unbind(),
+                },
+            )
+            .unwrap(),
+            PartFloats::Flat(float) => float,
         }
     }
 }
 
-#[derive(Debug, FromPyObject)]
-pub enum Bools {
+#[derive(FromPyObject)]
+pub enum PartBools {
     Num(bool),
     Flat(Py<Bool>),
 }
 
-impl FromGil<Bools> for Py<Bool> {
-    fn from_gil(py: Python, bools: Bools) -> Self {
+impl FromGil<PartBools> for Py<Bool> {
+    fn from_gil(py: Python, bools: PartBools) -> Self {
         match bools {
-            Bools::Flat(float) => float,
-            Bools::Num(num) => Py::new(py, Bool::new(num)).unwrap(),
+            PartBools::Flat(float) => float,
+            PartBools::Num(num) => Py::new(py, Bool::new(num)).unwrap(),
         }
     }
 }
