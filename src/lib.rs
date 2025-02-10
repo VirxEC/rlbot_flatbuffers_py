@@ -134,6 +134,47 @@ pub const fn bool_to_str(b: bool) -> &'static str {
     }
 }
 
+#[inline(never)]
+pub fn pydefault_string(py: Python) -> Py<PyString> {
+    PyString::intern(py, "").unbind()
+}
+
+pub trait UnpackFrom<T> {
+    fn unpack_from(&mut self, py: Python, flat_t: T);
+}
+
+#[inline(never)]
+pub fn update_list<T, U>(py: Python, items: Borrowed<PyList>, flat_t: Vec<T>)
+where
+    T: IntoGil<U>,
+    U: pyo3::PyClass<Frozen = pyo3::pyclass::boolean_struct::False>
+        + Into<PyClassInitializer<U>>
+        + UnpackFrom<T>,
+{
+    let scripts_len = flat_t.len();
+    let mut script_iter = flat_t.into_iter();
+
+    for py_item in items.iter() {
+        match script_iter.next() {
+            Some(item) => py_item
+                .downcast_into_exact::<U>()
+                .unwrap()
+                .borrow_mut()
+                .unpack_from(py, item),
+            None => {
+                for i in scripts_len..items.len() {
+                    items.del_item(i).unwrap();
+                }
+                return;
+            }
+        }
+    }
+
+    for x in script_iter {
+        items.append(crate::into_py_from::<_, U>(py, x)).unwrap();
+    }
+}
+
 #[derive(FromPyObject)]
 pub enum PartFloats {
     Float(f64),

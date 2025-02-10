@@ -6,7 +6,7 @@ pub trait Generator {
     fn struct_name(&self) -> &str;
     fn file_contents(&self) -> &Vec<Cow<'static, str>>;
 
-    fn add_get_size_derive(&self, path: &Path);
+    fn modify_source(&self, path: &Path);
     fn generate_definition(&mut self);
     fn generate_from_flat_impls(&mut self);
     fn generate_to_flat_impls(&mut self);
@@ -23,7 +23,7 @@ pub trait Generator {
     }
 
     fn generate(&mut self, filepath: &Path) -> io::Result<()> {
-        self.add_get_size_derive(filepath);
+        self.modify_source(filepath);
         self.generate_definition();
         self.generate_from_flat_impls();
         self.generate_to_flat_impls();

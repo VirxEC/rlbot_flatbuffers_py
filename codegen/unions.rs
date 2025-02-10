@@ -8,6 +8,7 @@ pub struct UnionBindGenerator {
     pub types: Vec<CustomEnumType>,
     file_contents: Vec<Cow<'static, str>>,
     is_frozen: bool,
+    is_no_set: bool,
 }
 
 macro_rules! write_str {
@@ -30,9 +31,10 @@ impl UnionBindGenerator {
         types: Vec<CustomEnumType>,
     ) -> Option<Self> {
         let is_frozen = PythonBindType::FROZEN_TYPES.contains(&struct_name.as_str());
+        let is_no_set = PythonBindType::NO_SET_TYPES.contains(&struct_name.as_str());
 
         let file_contents = vec![
-            Cow::Borrowed("use crate::{generated::rlbot::flat, FromGil};"),
+            Cow::Borrowed("use crate::{generated::rlbot::flat, FromGil, UnpackFrom};"),
             Cow::Borrowed("use pyo3::{pyclass, pymethods, Bound, Py, PyAny, Python};"),
             Cow::Borrowed(""),
         ];
@@ -44,6 +46,7 @@ impl UnionBindGenerator {
             types,
             file_contents,
             is_frozen,
+            is_no_set,
         })
     }
 
@@ -129,6 +132,61 @@ impl UnionBindGenerator {
         write_str!(self, "        }");
         write_str!(self, "    }");
     }
+
+    fn generate_unpack_from(&mut self) {
+        write_fmt!(
+            self,
+            "impl UnpackFrom<flat::{}> for {} {{",
+            self.struct_t_name,
+            self.struct_name
+        );
+        write_str!(self, "    #[allow(unused_variables)]");
+        write_fmt!(
+            self,
+            "    fn unpack_from(&mut self, py: Python, flat_t: flat::{}) {{",
+            self.struct_t_name
+        );
+        write_str!(self, "        match flat_t {");
+
+        for variable_info in &self.types {
+            let variable_name = variable_info.name.as_str();
+
+            if variable_name == "NONE" {
+                write_fmt!(
+                    self,
+                    "            flat::{}::NONE => unreachable!(),",
+                    self.struct_t_name
+                );
+                continue;
+            }
+
+            write_fmt!(
+                self,
+                "            flat::{}::{variable_name}(flat_item) => {{",
+                self.struct_t_name
+            );
+            write_fmt!(
+                self,
+                "                if let {}Union::{variable_name}(item) = &self.item {{",
+                self.struct_name
+            );
+            write_fmt!(self, "                    item.bind_borrowed(py).borrow_mut().unpack_from(py, *flat_item);");
+            write_str!(self, "                } else {");
+            write_fmt!(
+                self,
+                "                    self.item = {}Union::{variable_name}(",
+                self.struct_name
+            );
+            write_fmt!(self, "                        Py::new(py, super::{variable_name}::from_gil(py, *flat_item)).unwrap()");
+            write_str!(self, "                    );");
+            write_str!(self, "                }");
+            write_str!(self, "            },");
+        }
+
+        write_str!(self, "        }");
+        write_str!(self, "    }");
+        write_str!(self, "}");
+    }
 }
 
 impl Generator for UnionBindGenerator {
@@ -144,7 +202,7 @@ impl Generator for UnionBindGenerator {
         &self.file_contents
     }
 
-    fn add_get_size_derive(&self, path: &Path) {
+    fn modify_source(&self, path: &Path) {
         let mut contents = fs::read_to_string(path).unwrap();
 
         #[cfg(windows)]
@@ -159,8 +217,23 @@ impl Generator for UnionBindGenerator {
 
         contents = contents.replace(
             "#[derive(Debug, Clone, PartialEq)]\n",
-            "#[derive(Debug, Clone, PartialEq, GetSize)]\n",
+            "#[derive(PartialEq, GetSize)]\n",
         );
+
+        // delete unneeded auto-generated source code from flatc
+        let start = contents.find("impl core::fmt::Debug for ").unwrap();
+        let end = contents[start..].find("\n}").unwrap() + 2;
+        contents.replace_range(start..start + end, "");
+
+        for _ in 0..3 {
+            let start = contents.find("#[deprecated").unwrap();
+            let end = contents[start..].find(";\n").unwrap() + 2;
+            contents.replace_range(start..start + end, "");
+        }
+
+        let start = contents.find("  /// Returns the variant's name").unwrap();
+        let end = contents[start..].find("\n  }\n").unwrap() + 5;
+        contents.replace_range(start..start + end, "");
 
         fs::write(path, contents).unwrap();
     }
@@ -180,6 +253,8 @@ impl Generator for UnionBindGenerator {
 
         if self.is_frozen {
             write_str!(self, "#[pyclass(module = \"rlbot_flatbuffers\", frozen)]");
+        } else if self.is_no_set {
+            write_str!(self, "#[pyclass(module = \"rlbot_flatbuffers\")]");
         } else {
             write_str!(self, "#[pyclass(module = \"rlbot_flatbuffers\", set_all)]");
         }
@@ -203,6 +278,10 @@ impl Generator for UnionBindGenerator {
         write_str!(self, "    }");
         write_str!(self, "}");
         write_str!(self, "");
+
+        if !self.is_frozen {
+            self.generate_unpack_from();
+        }
     }
 
     fn generate_from_flat_impls(&mut self) {

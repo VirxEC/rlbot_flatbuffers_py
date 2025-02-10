@@ -248,7 +248,7 @@ impl Generator for EnumBindGenerator {
         &self.file_contents
     }
 
-    fn add_get_size_derive(&self, path: &Path) {
+    fn modify_source(&self, path: &Path) {
         let mut contents = fs::read_to_string(path).unwrap();
 
         #[cfg(windows)]

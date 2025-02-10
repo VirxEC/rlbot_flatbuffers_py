@@ -310,10 +310,26 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                     }
                 }
 
-                write_str!(file, "    def pack(self) -> bytes: ...");
+                write_str!(file, "    def pack(self) -> bytes:");
+                write_str!(file, "        \"\"\"");
+                write_str!(file, "        Serializes this instance into a byte array");
+                write_str!(file, "        \"\"\"");
+
+                if !gen.is_frozen {
+                    write_str!(file, "    def unpack_with(self, data: bytes):");
+                    write_str!(file, "        \"\"\"");
+                    write_str!(file, "        Deserializes the data into this instance\n");
+                    write_str!(
+                        file,
+                        "        :raises InvalidFlatbuffer: If the `data` is invalid for this type"
+                    );
+                    write_str!(file, "        \"\"\"");
+                }
+
                 write_str!(file, "    @staticmethod");
                 write_fmt!(file, "    def unpack(data: bytes) -> {type_name}:");
                 write_str!(file, "        \"\"\"");
+                write_str!(file, "        Deserializes the data into a new instance\n");
                 write_str!(
                     file,
                     "        :raises InvalidFlatbuffer: If the `data` is invalid for this type"
