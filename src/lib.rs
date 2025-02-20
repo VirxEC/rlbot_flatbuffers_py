@@ -6,6 +6,7 @@
     clippy::size_of_in_element_count,
     clippy::needless_lifetimes,
     clippy::too_long_first_doc_paragraph,
+    unsafe_op_in_unsafe_fn,
     non_snake_case,
     unused_imports
 )]
@@ -14,7 +15,7 @@ pub mod generated;
 #[allow(clippy::enum_variant_names, clippy::useless_conversion, unused_imports)]
 mod python;
 
-use pyo3::{create_exception, exceptions::PyValueError, prelude::*, types::*, PyClass};
+use pyo3::{PyClass, create_exception, exceptions::PyValueError, prelude::*, types::*};
 use python::*;
 use std::{panic::Location, path::MAIN_SEPARATOR};
 
@@ -127,11 +128,7 @@ pub fn none_str() -> String {
 #[must_use]
 #[inline(never)]
 pub const fn bool_to_str(b: bool) -> &'static str {
-    if b {
-        "True"
-    } else {
-        "False"
-    }
+    if b { "True" } else { "False" }
 }
 
 #[inline(never)]

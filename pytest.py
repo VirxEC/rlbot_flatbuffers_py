@@ -39,7 +39,7 @@ if __name__ == "__main__":
     vec2 = Vector3(4, 5, 6)
     print(vec1 + vec2)
 
-    player_info = PlayerInfo(accolades=["MVP", "Hat Trick"])
+    player_info = PlayerInfo(name="HELLO", accolades=["MVP", "Hat Trick"])
     eval(repr(player_info))
     print()
 

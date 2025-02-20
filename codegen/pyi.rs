@@ -1,7 +1,7 @@
 use crate::{
+    PythonBindType,
     generator::Generator,
     structs::{InnerOptionType, InnerVecType, RustType},
-    PythonBindType,
 };
 use std::{borrow::Cow, fs, io};
 
@@ -49,8 +49,8 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
         write_fmt!(file, "class {type_name}:");
 
         match item {
-            PythonBindType::Union(gen) => {
-                let types = gen
+            PythonBindType::Union(bind) => {
+                let types = bind
                     .types
                     .iter()
                     .map(|variable_info| variable_info.name.as_str())
@@ -68,8 +68,8 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                 write_fmt!(file, "        self, item: {union_str} = {default_value}()");
                 write_str!(file, "    ): ...\n");
             }
-            PythonBindType::Enum(gen) => {
-                for variable_info in &gen.types {
+            PythonBindType::Enum(bind) => {
+                for variable_info in &bind.types {
                     let variable_name = variable_info.name.as_str();
                     if variable_name == "NONE" {
                         continue;
@@ -105,8 +105,8 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                 );
                 write_str!(file, "    def __hash__(self) -> str: ...");
             }
-            PythonBindType::Struct(gen) => {
-                if let Some(docs) = gen.struct_doc_str.as_ref() {
+            PythonBindType::Struct(bind) => {
+                if let Some(docs) = bind.struct_doc_str.as_ref() {
                     write_str!(file, "    \"\"\"");
 
                     for line in docs {
@@ -118,7 +118,7 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
 
                 let mut python_types = Vec::new();
 
-                'outer: for variable_info in &gen.types {
+                'outer: for variable_info in &bind.types {
                     let variable_name = variable_info.name.as_str();
                     let variable_type = variable_info.raw_type.as_str();
 
@@ -215,11 +215,11 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                             let union_types = type_data
                                 .iter()
                                 .find_map(|item| match item {
-                                    PythonBindType::Union(gen)
-                                        if gen.struct_name() == type_name =>
+                                    PythonBindType::Union(bind)
+                                        if bind.struct_name() == type_name =>
                                     {
                                         Some(
-                                            gen.types
+                                            bind.types
                                                 .iter()
                                                 .skip(1)
                                                 .map(|v| v.name.as_str())
@@ -250,17 +250,17 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                     }
                 }
 
-                if !gen.types.is_empty() {
+                if !bind.types.is_empty() {
                     write_str!(file, "");
                     write_str!(file, "    __match_args__ = (");
 
-                    for variable_info in &gen.types {
+                    for variable_info in &bind.types {
                         write_fmt!(file, "        \"{}\",", variable_info.name);
                     }
                     write_str!(file, "    )");
                 }
 
-                if gen.types.is_empty() {
+                if bind.types.is_empty() {
                     write_str!(file, "    def __init__(self): ...");
                 } else {
                     write_str!(file, "");
@@ -271,7 +271,7 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                         write_fmt!(file, "    def __{func}__(");
                         write_fmt!(file, "        {first_arg},");
 
-                        for (variable_info, python_type) in gen.types.iter().zip(&python_types) {
+                        for (variable_info, python_type) in bind.types.iter().zip(&python_types) {
                             let variable_name = variable_info.name.as_str();
 
                             let default_value = match variable_info.raw_type.as_str() {
@@ -315,7 +315,7 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                 write_str!(file, "        Serializes this instance into a byte array");
                 write_str!(file, "        \"\"\"");
 
-                if !gen.is_frozen {
+                if !bind.is_frozen {
                     write_str!(file, "    def unpack_with(self, data: bytes):");
                     write_str!(file, "        \"\"\"");
                     write_str!(file, "        Deserializes the data into this instance\n");

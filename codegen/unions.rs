@@ -1,4 +1,4 @@
-use crate::{enums::CustomEnumType, generator::Generator, PythonBindType};
+use crate::{PythonBindType, enums::CustomEnumType, generator::Generator};
 use std::{borrow::Cow, fs, path::Path};
 
 pub struct UnionBindGenerator {
@@ -170,14 +170,20 @@ impl UnionBindGenerator {
                 "                if let {}Union::{variable_name}(item) = &self.item {{",
                 self.struct_name
             );
-            write_fmt!(self, "                    item.bind_borrowed(py).borrow_mut().unpack_from(py, *flat_item);");
+            write_fmt!(
+                self,
+                "                    item.bind_borrowed(py).borrow_mut().unpack_from(py, *flat_item);"
+            );
             write_str!(self, "                } else {");
             write_fmt!(
                 self,
                 "                    self.item = {}Union::{variable_name}(",
                 self.struct_name
             );
-            write_fmt!(self, "                        Py::new(py, super::{variable_name}::from_gil(py, *flat_item)).unwrap()");
+            write_fmt!(
+                self,
+                "                        Py::new(py, super::{variable_name}::from_gil(py, *flat_item)).unwrap()"
+            );
             write_str!(self, "                    );");
             write_str!(self, "                }");
             write_str!(self, "            },");

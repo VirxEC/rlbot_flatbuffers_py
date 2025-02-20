@@ -144,25 +144,25 @@ impl PythonBindType {
 
     pub fn filename(&self) -> &str {
         match self {
-            Self::Struct(gen) => gen.filename(),
-            Self::Enum(gen) => gen.filename(),
-            Self::Union(gen) => gen.filename(),
+            Self::Struct(bind) => bind.filename(),
+            Self::Enum(bind) => bind.filename(),
+            Self::Union(bind) => bind.filename(),
         }
     }
 
     pub fn struct_name(&self) -> &str {
         match self {
-            Self::Struct(gen) => gen.struct_name(),
-            Self::Enum(gen) => gen.struct_name(),
-            Self::Union(gen) => gen.struct_name(),
+            Self::Struct(bind) => bind.struct_name(),
+            Self::Enum(bind) => bind.struct_name(),
+            Self::Union(bind) => bind.struct_name(),
         }
     }
 
     pub fn generate(&mut self, filepath: &Path) -> io::Result<()> {
         match self {
-            Self::Struct(gen) => gen.generate(filepath),
-            Self::Enum(gen) => gen.generate(filepath),
-            Self::Union(gen) => gen.generate(filepath),
+            Self::Struct(bind) => bind.generate(filepath),
+            Self::Enum(bind) => bind.generate(filepath),
+            Self::Union(bind) => bind.generate(filepath),
         }
     }
 }
