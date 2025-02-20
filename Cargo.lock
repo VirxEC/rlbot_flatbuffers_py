@@ -279,7 +279,7 @@ dependencies = [
 
 [[package]]
 name = "rlbot_flatbuffers"
-version = "0.13.4"
+version = "0.13.3"
 dependencies = [
  "flatbuffers",
  "get-size",
