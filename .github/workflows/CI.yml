@@ -83,6 +83,7 @@ jobs:
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
+          rust-toolchain: beta
           command: sdist
           args: --out dist
       - name: Upload sdist
