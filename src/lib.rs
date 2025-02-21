@@ -237,7 +237,7 @@ pynamedmodule! {
         BallTypeMutator,
         BallWeightMutator,
         Bool,
-        BoostMutator,
+        BoostAmountMutator,
         BoostPad,
         BoostPadState,
         BoostStrengthMutator,
