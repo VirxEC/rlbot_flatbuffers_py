@@ -54,6 +54,7 @@ pub struct StructBindGenerator {
     has_complex_pack: bool,
     pub is_frozen: bool,
     is_no_set: bool,
+    pub default_override: Option<(&'static str, &'static str)>,
 }
 
 macro_rules! write_str {
@@ -103,6 +104,17 @@ impl StructBindGenerator {
         file_contents.push(Cow::Borrowed("use pyo3::{prelude::*, types::*};"));
         file_contents.push(Cow::Borrowed(""));
 
+        let default_override =
+            PythonBindType::DEFAULT_OVERRIDES
+                .iter()
+                .find_map(|&(name, field, value)| {
+                    if name == struct_name.as_str() {
+                        Some((field, value))
+                    } else {
+                        None
+                    }
+                });
+
         Some(Self {
             filename,
             struct_name,
@@ -113,6 +125,7 @@ impl StructBindGenerator {
             has_complex_pack,
             is_frozen,
             is_no_set,
+            default_override,
         })
     }
 
@@ -296,6 +309,13 @@ impl StructBindGenerator {
 
         for variable_info in &self.types {
             let variable_name = variable_info.name.as_str();
+
+            if let Some((field, value)) = self.default_override {
+                if field == variable_name {
+                    signature_parts.push(format!("{variable_name}={value}"));
+                    continue;
+                }
+            }
 
             let sig_part = match &variable_info.rust_type {
                 RustType::Option(_, _) => {
@@ -954,6 +974,13 @@ impl Generator for StructBindGenerator {
 
         for variable_info in &self.types {
             let variable_name = variable_info.name.as_str();
+
+            if let Some((field, value)) = self.default_override {
+                if field == variable_name {
+                    write_fmt!(self, "            {variable_name}: {value},");
+                    continue;
+                }
+            }
 
             let end = match &variable_info.rust_type {
                 RustType::Vec(InnerVecType::U8) => Cow::Borrowed("PyBytes::new(py, &[]).unbind()"),

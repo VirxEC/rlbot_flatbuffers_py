@@ -274,6 +274,16 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                         for (variable_info, python_type) in bind.types.iter().zip(&python_types) {
                             let variable_name = variable_info.name.as_str();
 
+                            if let Some((field, value)) = bind.default_override {
+                                if field == variable_name {
+                                    write_fmt!(
+                                        file,
+                                        "        {variable_name}: {python_type} = {value},"
+                                    );
+                                    continue;
+                                }
+                            }
+
                             let default_value = match variable_info.raw_type.as_str() {
                                 "bool" => Cow::Borrowed("False"),
                                 "i32" | "u32" | "f32" | "u8" => Cow::Borrowed("0"),

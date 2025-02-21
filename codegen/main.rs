@@ -60,6 +60,9 @@ impl PythonBindType {
         "RenderType",
     ];
 
+    pub const DEFAULT_OVERRIDES: [(&'static str, &'static str, &'static str); 1] =
+        [("Color", "a", "255")];
+
     fn new(path: &Path) -> Option<Self> {
         // get the filename without the extension
         let filename = path.file_stem().unwrap().to_str().unwrap();
