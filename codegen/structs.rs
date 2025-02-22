@@ -466,6 +466,33 @@ impl StructBindGenerator {
 
         write_str!(self, "        }");
         write_str!(self, "    }");
+
+        if self.is_frozen || self.is_no_set {
+            return;
+        }
+
+        for variable_info in &self.types {
+            let variable_name = variable_info.name.as_str();
+
+            match &variable_info.rust_type {
+                RustType::Base(inner_type) => match inner_type.as_str() {
+                    "f32" => {
+                        write_str!(self, "\n    #[setter]");
+                        write_fmt!(
+                            self,
+                            "    pub fn {variable_name}(&mut self, py: Python, value: f32) {{",
+                        );
+                        write_fmt!(
+                            self,
+                            "        self.{variable_name} = crate::float_to_py(py, value);"
+                        );
+                        write_str!(self, "    }");
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
     }
 
     fn generate_str_method(&mut self) {
@@ -919,10 +946,8 @@ impl Generator for StructBindGenerator {
                 "#[pyclass(module = \"rlbot_flatbuffers\", subclass, get_all, frozen)]"
             } else if self.types.is_empty() {
                 "#[pyclass(module = \"rlbot_flatbuffers\", subclass, frozen)]"
-            } else if self.is_no_set {
-                "#[pyclass(module = \"rlbot_flatbuffers\", subclass, get_all)]"
             } else {
-                "#[pyclass(module = \"rlbot_flatbuffers\", subclass, get_all, set_all)]"
+                "#[pyclass(module = \"rlbot_flatbuffers\", subclass, get_all)]"
             }
         );
 
@@ -933,11 +958,14 @@ impl Generator for StructBindGenerator {
             return;
         }
 
+        let gen_set = !(self.is_no_set || self.is_frozen);
+
         write_fmt!(self, "pub struct {} {{", self.struct_name);
 
         for variable_info in &self.types {
             let variable_name = variable_info.name.as_str();
 
+            let mut add_set = true;
             let variable_type = match &variable_info.rust_type {
                 RustType::Vec(InnerVecType::U8) => String::from("Py<PyBytes>"),
                 RustType::Vec(InnerVecType::String) => String::from("Vec<String>"),
@@ -952,7 +980,10 @@ impl Generator for StructBindGenerator {
                 }
                 RustType::Option(_, inner_type) => format!("Option<Py<super::{inner_type}>>"),
                 RustType::Base(inner_type) => match inner_type.as_str() {
-                    "f32" => String::from("Py<PyFloat>"),
+                    "f32" => {
+                        add_set = false;
+                        String::from("Py<PyFloat>")
+                    }
                     _ => inner_type.clone(),
                 },
                 RustType::String => String::from("Py<PyString>"),
@@ -961,6 +992,10 @@ impl Generator for StructBindGenerator {
                 }
                 RustType::Other(inner_type) => format!("super::{inner_type}"),
             };
+
+            if gen_set && add_set {
+                write_str!(self, "    #[pyo3(set)]");
+            }
 
             write_fmt!(self, "    pub {variable_name}: {variable_type},");
         }

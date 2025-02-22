@@ -1,6 +1,7 @@
 from random import randrange
 from time import time_ns
 
+import numpy as np
 from rlbot_flatbuffers import *
 
 
@@ -35,6 +36,11 @@ def random_script_config():
 
 
 if __name__ == "__main__":
+    controller = ControllerState()
+    controller.throttle = 1
+    controller.steer = 0.5
+    controller.pitch = np.array([0.1], dtype=np.float32)[0]
+
     vec1 = MyVector(1, 2, 3)
     vec2 = Vector3(4, 5, 6)
     print(vec1 + vec2)
