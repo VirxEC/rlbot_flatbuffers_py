@@ -480,11 +480,11 @@ impl StructBindGenerator {
                         write_str!(self, "\n    #[setter]");
                         write_fmt!(
                             self,
-                            "    pub fn {variable_name}(&mut self, py: Python, value: f32) {{",
+                            "    pub fn {variable_name}(&mut self, py: Python, value: f64) {{",
                         );
                         write_fmt!(
                             self,
-                            "        self.{variable_name} = crate::float_to_py(py, value);"
+                            "        self.{variable_name} = PyFloat::new(py, value).unbind();"
                         );
                         write_str!(self, "    }");
                     }
