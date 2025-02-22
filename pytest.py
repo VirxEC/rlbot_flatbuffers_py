@@ -159,6 +159,30 @@ if __name__ == "__main__":
     data = ballPred.pack()
     print(f"BallPrediction size: {len(data)} bytes")
 
+    # verify unpack_with method
+    emptyBallPred = BallPrediction()
+    data = emptyBallPred.pack()
+
+    ballPred.unpack_with(data)
+    assert len(ballPred.slices) == 0
+
+    fullBallPred = BallPrediction([PredictionSlice(t / 120) for t in range(6 * 120)])
+    data = fullBallPred.pack()
+
+    ballPred.unpack_with(data)
+    assert len(ballPred.slices) == 6 * 120
+
+    halfBallPred = BallPrediction(
+        [PredictionSlice(t / 120 + 1) for t in range(3 * 120)]
+    )
+    data = halfBallPred.pack()
+
+    ballPred.unpack_with(data)
+    assert len(ballPred.slices) == 3 * 120
+
+    for i, slice in enumerate(ballPred.slices):
+        assert slice.game_seconds - (i / 120 + 1) < 1e-6
+
     print()
 
     print("Running quick benchmark...")

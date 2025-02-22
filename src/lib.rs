@@ -15,7 +15,10 @@ pub mod generated;
 #[allow(clippy::enum_variant_names, clippy::useless_conversion, unused_imports)]
 mod python;
 
-use pyo3::{PyClass, create_exception, exceptions::PyValueError, prelude::*, types::*};
+use pyo3::{
+    PyClass, create_exception, exceptions::PyValueError, prelude::*,
+    pyclass::boolean_struct::False, types::*,
+};
 use python::*;
 use std::{panic::Location, path::MAIN_SEPARATOR};
 
@@ -144,9 +147,7 @@ pub trait UnpackFrom<T> {
 pub fn update_list<T, U>(py: Python, items: Borrowed<PyList>, flat_t: Vec<T>)
 where
     T: IntoGil<U>,
-    U: pyo3::PyClass<Frozen = pyo3::pyclass::boolean_struct::False>
-        + Into<PyClassInitializer<U>>
-        + UnpackFrom<T>,
+    U: pyo3::PyClass<Frozen = False> + Into<PyClassInitializer<U>> + UnpackFrom<T>,
 {
     let scripts_len = flat_t.len();
     let mut script_iter = flat_t.into_iter();
@@ -159,8 +160,9 @@ where
                 .borrow_mut()
                 .unpack_from(py, item),
             None => {
-                for i in scripts_len..items.len() {
-                    items.del_item(i).unwrap();
+                let items_len = items.len();
+                for i in 0..items_len - scripts_len {
+                    items.del_item(items_len - i - 1).unwrap();
                 }
                 return;
             }
