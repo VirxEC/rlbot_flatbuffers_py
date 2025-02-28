@@ -66,7 +66,6 @@ where
     }
 }
 
-#[inline(never)]
 fn into_py_from<T, U>(py: Python, obj: T) -> Py<U>
 where
     T: IntoGil<U>,
@@ -75,7 +74,6 @@ where
     Py::new(py, obj.into_gil(py)).unwrap()
 }
 
-#[inline(never)]
 fn from_py_into<T, U>(py: Python, obj: &Py<T>) -> U
 where
     T: PyClass,
@@ -84,7 +82,6 @@ where
     (&*obj.borrow(py)).into_gil(py)
 }
 
-#[inline(never)]
 fn from_pyany_into<T, U>(py: Python, obj: Bound<PyAny>) -> U
 where
     T: PyClass,
@@ -105,19 +102,16 @@ impl<T: Default + PyClass + Into<PyClassInitializer<T>>> PyDefault for T {
 }
 
 #[must_use]
-#[inline(never)]
 pub fn pyfloat_default(py: Python) -> Py<PyFloat> {
     PyFloat::new(py, 0.0).unbind()
 }
 
 #[must_use]
-#[inline(never)]
 pub fn float_to_py(py: Python, num: f32) -> Py<PyFloat> {
     PyFloat::new(py, num as f64).unbind()
 }
 
 #[must_use]
-#[inline(never)]
 pub fn float_from_py(py: Python, num: &Py<PyFloat>) -> f32 {
     num.bind(py).value() as f32
 }
@@ -134,7 +128,7 @@ pub const fn bool_to_str(b: bool) -> &'static str {
     if b { "True" } else { "False" }
 }
 
-#[inline(never)]
+#[must_use]
 pub fn pydefault_string(py: Python) -> Py<PyString> {
     PyString::intern(py, "").unbind()
 }
@@ -143,7 +137,6 @@ pub trait UnpackFrom<T> {
     fn unpack_from(&mut self, py: Python, flat_t: T);
 }
 
-#[inline(never)]
 pub fn update_list<T, U>(py: Python, items: Borrowed<PyList>, flat_t: Vec<T>)
 where
     T: IntoGil<U>,
