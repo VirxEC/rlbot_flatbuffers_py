@@ -62,6 +62,7 @@ impl PythonBindType {
 
     pub const DEFAULT_OVERRIDES: [(&'static str, &'static str, &'static str); 1] =
         [("Color", "a", "255")];
+    pub const FREELIST_TYPES: [(&'static str, usize); 0] = [];
 
     fn new(path: &Path) -> Option<Self> {
         // get the filename without the extension

@@ -266,6 +266,23 @@ impl Generator for EnumBindGenerator {
             "#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, GetSize)]\n",
         );
 
+        let start = contents.find("impl core::fmt::Debug for ").unwrap();
+        let end = contents[start..].find("\n}").unwrap() + 3;
+        contents.replace_range(start..start + end, "");
+
+        let start = contents.find("  pub fn variant_name").unwrap();
+        let prev_line_start = contents[..start].rfind(";\n").unwrap();
+        let end = contents[start..].find("  }\n").unwrap() + 7;
+        contents.replace_range(prev_line_start + 1..start + end, "");
+
+        for val in ["ENUM_MIN", "ENUM_MAX", "ENUM_VALUES"] {
+            let line_start = contents.find(&format!("\npub const {val}")).unwrap();
+            let prev_line_start = contents[..line_start].rfind(";\n").unwrap();
+            let line_end = contents[line_start..].find(";\n").unwrap();
+
+            contents.replace_range(prev_line_start..line_start + line_end, "");
+        }
+
         fs::write(path, contents).unwrap();
     }
 
@@ -315,9 +332,10 @@ impl Generator for EnumBindGenerator {
             );
         }
 
-        write_str!(
+        write_fmt!(
             self,
-            "            v => unreachable!(\"Unknown value: {v:?}\"),"
+            "            _ => Self::{},",
+            self.types.last().unwrap().name.as_str()
         );
 
         write_str!(self, "        }");

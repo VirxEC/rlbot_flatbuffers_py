@@ -55,6 +55,7 @@ pub struct StructBindGenerator {
     pub is_frozen: bool,
     is_no_set: bool,
     pub default_override: Option<(&'static str, &'static str)>,
+    freelist_size: usize,
 }
 
 macro_rules! write_str {
@@ -115,6 +116,17 @@ impl StructBindGenerator {
                     }
                 });
 
+        let freelist_size = PythonBindType::FREELIST_TYPES
+            .iter()
+            .find_map(|&(name, size)| {
+                if name == struct_name.as_str() {
+                    Some(size)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_default();
+
         Some(Self {
             filename,
             struct_name,
@@ -126,6 +138,7 @@ impl StructBindGenerator {
             is_frozen,
             is_no_set,
             default_override,
+            freelist_size,
         })
     }
 
@@ -940,16 +953,20 @@ impl Generator for StructBindGenerator {
     }
 
     fn generate_definition(&mut self) {
-        write_str!(
-            self,
-            if self.is_frozen {
-                "#[pyclass(module = \"rlbot_flatbuffers\", subclass, get_all, frozen)]"
-            } else if self.types.is_empty() {
-                "#[pyclass(module = \"rlbot_flatbuffers\", subclass, frozen)]"
-            } else {
-                "#[pyclass(module = \"rlbot_flatbuffers\", subclass, get_all)]"
-            }
-        );
+        let freelist_str = if self.freelist_size > 0 {
+            Cow::Owned(format!(", freelist = {}", self.freelist_size))
+        } else {
+            Cow::Borrowed("")
+        };
+
+        let pyclass_start_str = "#[pyclass(module = \"rlbot_flatbuffers\", subclass, ";
+        if self.is_frozen {
+            write_fmt!(self, "{pyclass_start_str}get_all, frozen{freelist_str})]");
+        } else if self.types.is_empty() {
+            write_fmt!(self, "{pyclass_start_str}frozen{freelist_str})]");
+        } else {
+            write_fmt!(self, "{pyclass_start_str}get_all{freelist_str})]");
+        }
 
         if self.types.is_empty() {
             write_str!(self, "#[derive(Default)]");
