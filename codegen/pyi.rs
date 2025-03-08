@@ -326,7 +326,7 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                 write_str!(file, "        \"\"\"");
 
                 if !bind.is_frozen {
-                    write_str!(file, "    def unpack_with(self, data: bytes):");
+                    write_str!(file, "    def unpack_with(self, data: bytes) -> None:");
                     write_str!(file, "        \"\"\"");
                     write_str!(file, "        Deserializes the data into this instance\n");
                     write_str!(
