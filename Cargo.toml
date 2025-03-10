@@ -1,6 +1,6 @@
 [package]
 name = "rlbot_flatbuffers"
-version = "0.14.4"
+version = "0.14.5"
 edition = "2024"
 description = "A Python module implemented in Rust for serializing and deserializing RLBot's flatbuffers"
 repository = "https://github.com/VirxEC/rlbot_flatbuffers_py"
@@ -18,7 +18,7 @@ all = "warn"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.23.0", features = [] }
+pyo3 = { version = "0.24.0", features = [] }
 serde = "1.0.217"
 flatbuffers = "=25.2.10"
 # get-size appears to be unmaintained but it's too useful here
