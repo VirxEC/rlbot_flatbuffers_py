@@ -16,10 +16,7 @@ fn camel_to_snake_case(variable_name: &str) -> String {
     for c in variable_name.chars() {
         if c.is_uppercase() {
             if last_was_uppercase {
-                snake_case_parts
-                    .last_mut()
-                    .unwrap()
-                    .push(c.to_lowercase().next().unwrap());
+                snake_case_parts.last_mut().unwrap().push(c.to_lowercase().next().unwrap());
             } else {
                 snake_case_parts.push(c.to_lowercase().to_string());
             }
@@ -80,9 +77,7 @@ impl EnumBindGenerator {
         })
     }
 
-    pub fn raw_types_to_custom(
-        raw_types: Vec<(&str, &str, Option<Vec<String>>)>,
-    ) -> Vec<CustomEnumType> {
+    pub fn raw_types_to_custom(raw_types: Vec<(&str, &str, Option<Vec<String>>)>) -> Vec<CustomEnumType> {
         raw_types
             .into_iter()
             .map(|(name, raw_type, doc_str)| CustomEnumType {
@@ -129,17 +124,12 @@ impl EnumBindGenerator {
                 continue;
             }
 
-            let definition = line_trim
-                .trim_start_matches("pub const ")
-                .trim_end_matches(';');
+            let definition = line_trim.trim_start_matches("pub const ").trim_end_matches(';');
 
             let mut parts = definition.split(": Self = ");
 
             let variable_name = parts.next()?;
-            let variable_value = parts
-                .next()?
-                .trim_start_matches("Self(")
-                .trim_end_matches(')');
+            let variable_value = parts.next()?.trim_start_matches("Self(").trim_end_matches(')');
 
             let docs = if docs.is_empty() {
                 None
@@ -169,14 +159,11 @@ impl EnumBindGenerator {
         let union_end_definition = "}\n";
         let union_end = contents[union_start..].find(union_end_definition).unwrap();
 
-        let union_definition = &contents[union_start + union_definition.len()
-            ..union_start + union_end - union_end_definition.len()];
+        let union_definition =
+            &contents[union_start + union_definition.len()..union_start + union_end - union_end_definition.len()];
 
         for (line, variable) in union_definition.split('\n').zip(&mut custom_types) {
-            let line_trim = line
-                .trim()
-                .trim_start_matches(&variable.name)
-                .trim_end_matches(',');
+            let line_trim = line.trim().trim_start_matches(&variable.name).trim_end_matches(',');
 
             if line_trim.is_empty() {
                 variable.value = None;
@@ -185,9 +172,7 @@ impl EnumBindGenerator {
 
             variable.snake_case_name = camel_to_snake_case(variable.name.as_str());
 
-            let new_type = line_trim
-                .trim_start_matches("(Box<")
-                .trim_end_matches("T>)");
+            let new_type = line_trim.trim_start_matches("(Box<").trim_end_matches("T>)");
             variable.value = Some(new_type.to_string());
         }
 
@@ -204,11 +189,7 @@ impl EnumBindGenerator {
 
         for variable_info in &self.types {
             let variable_name = variable_info.name.as_str();
-            write_fmt!(
-                self,
-                "            {} => Ok(Self::{variable_name}),",
-                variable_info.raw_type
-            );
+            write_fmt!(self, "            {} => Ok(Self::{variable_name}),", variable_info.raw_type);
         }
 
         if self.types.len() != usize::from(u8::MAX) {
@@ -256,10 +237,7 @@ impl Generator for EnumBindGenerator {
             contents = contents.replace("\r\n", "\n");
         }
 
-        contents = contents.replace(
-            "use self::flatbuffers",
-            "use get_size::GetSize;\nuse self::flatbuffers",
-        );
+        contents = contents.replace("use self::flatbuffers", "use get_size::GetSize;\nuse self::flatbuffers");
 
         contents = contents.replace(
             "#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]\n",
@@ -288,14 +266,8 @@ impl Generator for EnumBindGenerator {
 
     fn generate_definition(&mut self) {
         write_str!(self, "#[allow(non_camel_case_types)]");
-        write_str!(
-            self,
-            "#[pyclass(module = \"rlbot_flatbuffers\", frozen, hash, eq, eq_int)]"
-        );
-        write_str!(
-            self,
-            "#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]"
-        );
+        write_str!(self, "#[pyclass(module = \"rlbot_flatbuffers\", frozen, hash, eq, eq_int)]");
+        write_str!(self, "#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]");
         write_fmt!(self, "pub enum {} {{", self.struct_name);
         write_str!(self, "    #[default]");
 
@@ -309,17 +281,8 @@ impl Generator for EnumBindGenerator {
     }
 
     fn generate_from_flat_impls(&mut self) {
-        write_fmt!(
-            self,
-            "impl From<flat::{}> for {} {{",
-            self.struct_name,
-            self.struct_name
-        );
-        write_fmt!(
-            self,
-            "    fn from(flat_t: flat::{}) -> Self {{",
-            self.struct_name
-        );
+        write_fmt!(self, "impl From<flat::{}> for {} {{", self.struct_name, self.struct_name);
+        write_fmt!(self, "    fn from(flat_t: flat::{}) -> Self {{", self.struct_name);
         write_str!(self, "        match flat_t {");
 
         for variable_info in &self.types {
@@ -332,11 +295,7 @@ impl Generator for EnumBindGenerator {
             );
         }
 
-        write_fmt!(
-            self,
-            "            _ => Self::{},",
-            self.types.last().unwrap().name.as_str()
-        );
+        write_fmt!(self, "            _ => Self::{},", self.types.last().unwrap().name.as_str());
 
         write_str!(self, "        }");
         write_str!(self, "    }");
@@ -345,17 +304,8 @@ impl Generator for EnumBindGenerator {
     }
 
     fn generate_to_flat_impls(&mut self) {
-        write_fmt!(
-            self,
-            "impl From<&{}> for flat::{} {{",
-            self.struct_name,
-            self.struct_name
-        );
-        write_fmt!(
-            self,
-            "    fn from(py_type: &{}) -> Self {{",
-            self.struct_name
-        );
+        write_fmt!(self, "impl From<&{}> for flat::{} {{", self.struct_name, self.struct_name);
+        write_fmt!(self, "    fn from(py_type: &{}) -> Self {{", self.struct_name);
         write_str!(self, "        match *py_type {");
 
         for variable_info in &self.types {

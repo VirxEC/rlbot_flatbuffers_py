@@ -93,16 +93,10 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                 write_str!(file, "    def __new__(cls, value: int = 0): ...");
                 write_str!(file, "    def __init__(self, value: int = 0):");
                 write_str!(file, "        \"\"\"");
-                write_str!(
-                    file,
-                    "        :raises ValueError: If the `value` is not a valid enum value"
-                );
+                write_str!(file, "        :raises ValueError: If the `value` is not a valid enum value");
                 write_str!(file, "        \"\"\"");
                 write_str!(file, "    def __int__(self) -> int: ...");
-                write_fmt!(
-                    file,
-                    "    def __eq__(self, other: {type_name}) -> bool: ..."
-                );
+                write_fmt!(file, "    def __eq__(self, other: {type_name}) -> bool: ...");
                 write_str!(file, "    def __hash__(self) -> str: ...");
             }
             PythonBindType::Struct(bind) => {
@@ -208,32 +202,32 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                             python_types.push("str".to_string());
                             write_fmt!(file, "    {variable_name}: str");
                         }
-                        RustType::Union(type_name) => {
-                            write_fmt!(file, "    {variable_name}: {type_name}");
+                        RustType::Union(type_name, is_optional) => {
+                            if *is_optional {
+                                write_fmt!(file, "    {variable_name}: Optional[{type_name}]");
+                            } else {
+                                write_fmt!(file, "    {variable_name}: {type_name}");
+                            }
 
                             // search for the union with the name `type_name` and get the types
                             let union_types = type_data
                                 .iter()
                                 .find_map(|item| match item {
-                                    PythonBindType::Union(bind)
-                                        if bind.struct_name() == type_name =>
-                                    {
-                                        Some(
-                                            bind.types
-                                                .iter()
-                                                .skip(1)
-                                                .map(|v| v.name.as_str())
-                                                .collect::<Vec<_>>(),
-                                        )
+                                    PythonBindType::Union(bind) if bind.struct_name() == type_name => {
+                                        Some(bind.types.iter().skip(1).map(|v| v.name.as_str()).collect::<Vec<_>>())
                                     }
                                     _ => None,
                                 })
                                 .unwrap();
-                            python_types.push(union_types.join(" | "));
+
+                            let python_type = union_types.join(" | ");
+                            python_types.push(if *is_optional {
+                                format!("Optional[{python_type}]")
+                            } else {
+                                python_type
+                            });
                         }
-                        RustType::Custom(type_name)
-                        | RustType::Other(type_name)
-                        | RustType::Base(type_name) => {
+                        RustType::Custom(type_name) | RustType::Other(type_name) | RustType::Base(type_name) => {
                             python_types.push(type_name.to_string());
                             write_fmt!(file, "    {variable_name}: {type_name}");
                         }
@@ -276,10 +270,7 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
 
                             if let Some((field, value)) = bind.default_override {
                                 if field == variable_name {
-                                    write_fmt!(
-                                        file,
-                                        "        {variable_name}: {python_type} = {value},"
-                                    );
+                                    write_fmt!(file, "        {variable_name}: {python_type} = {value},");
                                     continue;
                                 }
                             }
@@ -290,19 +281,15 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                                 "String" => Cow::Borrowed("\"\""),
                                 "Vec<u8>" => Cow::Borrowed("b\"\""),
                                 t => {
-                                    if python_type.starts_with("Optional")
-                                        || t.starts_with("Option<")
-                                    {
+                                    if python_type.starts_with("Optional") || t.starts_with("Option<") {
                                         Cow::Borrowed("None")
                                     } else if let Some(pos) = python_type.find('|') {
                                         Cow::Owned(format!("{}()", &python_type[..pos - 1]))
                                     } else if t.starts_with("Vec<") {
                                         Cow::Borrowed("[]")
                                     } else if t.starts_with("Box<") {
-                                        let inner_type = t
-                                            .trim_start_matches("Box<")
-                                            .trim_end_matches('>')
-                                            .trim_end_matches('T');
+                                        let inner_type =
+                                            t.trim_start_matches("Box<").trim_end_matches('>').trim_end_matches('T');
                                         Cow::Owned(format!("{inner_type}()"))
                                     } else {
                                         Cow::Owned(format!("{}()", t.trim_end_matches('T')))
@@ -310,10 +297,7 @@ pub fn generator(type_data: &[PythonBindType]) -> io::Result<()> {
                                 }
                             };
 
-                            write_fmt!(
-                                file,
-                                "        {variable_name}: {python_type} = {default_value},"
-                            );
+                            write_fmt!(file, "        {variable_name}: {python_type} = {default_value},");
                         }
 
                         write_str!(file, "    ): ...");

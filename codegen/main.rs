@@ -53,15 +53,10 @@ impl PythonBindType {
         "PredictionSlice",
         "BallPrediction",
     ];
-    pub const UNIONS: [&'static str; 4] = [
-        "PlayerClass",
-        "CollisionShape",
-        "RelativeAnchor",
-        "RenderType",
-    ];
+    pub const UNIONS: [&'static str; 4] = ["PlayerClass", "CollisionShape", "RelativeAnchor", "RenderType"];
 
-    pub const DEFAULT_OVERRIDES: [(&'static str, &'static str, &'static str); 1] =
-        [("Color", "a", "255")];
+    pub const OPTIONAL_UNIONS: [&'static str; 1] = ["RelativeAnchor"];
+    pub const DEFAULT_OVERRIDES: [(&'static str, &'static str, &'static str); 1] = [("Color", "a", "255")];
     pub const FREELIST_TYPES: [(&'static str, usize); 0] = [];
 
     fn new(path: &Path) -> Option<Self> {
@@ -106,12 +101,7 @@ impl PythonBindType {
         let struct_doc_str = if docs.is_empty() {
             None
         } else {
-            Some(
-                docs.into_iter()
-                    .map(|s| s.to_string())
-                    .rev()
-                    .collect::<Vec<_>>(),
-            )
+            Some(docs.into_iter().map(|s| s.to_string()).rev().collect::<Vec<_>>())
         };
 
         if let Some(types) = StructBindGenerator::get_types(&contents, &struct_t_name) {
@@ -125,15 +115,11 @@ impl PythonBindType {
             )?));
         }
 
-        if let Some((types, enum_type)) =
-            enums::EnumBindGenerator::get_types(&contents, &struct_name)
-        {
+        if let Some((types, enum_type)) = enums::EnumBindGenerator::get_types(&contents, &struct_name) {
             return Some(match enum_type {
-                enums::EnumType::Enum => Self::Enum(enums::EnumBindGenerator::new(
-                    filename.to_string(),
-                    struct_name,
-                    types,
-                )?),
+                enums::EnumType::Enum => {
+                    Self::Enum(enums::EnumBindGenerator::new(filename.to_string(), struct_name, types)?)
+                }
                 enums::EnumType::Union => Self::Union(unions::UnionBindGenerator::new(
                     filename.to_string(),
                     struct_name,
@@ -183,10 +169,7 @@ fn mod_rs_generator(type_data: &[PythonBindType]) -> io::Result<()> {
 
     file_contents.push(Cow::Borrowed(""));
 
-    fs::write(
-        format!("{PYTHON_OUT_FOLDER}/mod.rs"),
-        file_contents.join("\n"),
-    )?;
+    fs::write(format!("{PYTHON_OUT_FOLDER}/mod.rs"), file_contents.join("\n"))?;
 
     Ok(())
 }
@@ -204,10 +187,7 @@ fn run_flatc() -> io::Result<()> {
     let mut schema_folder = Path::new(SCHEMA_FOLDER);
     if !schema_folder.exists() {
         schema_folder = Path::new(SCHEMA_FOLDER_BACKUP);
-        assert!(
-            schema_folder.exists(),
-            "Could not find flatbuffers schema folder"
-        );
+        assert!(schema_folder.exists(), "Could not find flatbuffers schema folder");
     }
 
     let schema_folder_str = schema_folder.display();

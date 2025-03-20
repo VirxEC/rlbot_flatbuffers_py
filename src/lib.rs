@@ -15,19 +15,11 @@ pub mod generated;
 #[allow(clippy::enum_variant_names, clippy::useless_conversion, unused_imports)]
 mod python;
 
-use pyo3::{
-    PyClass, create_exception, exceptions::PyValueError, prelude::*,
-    pyclass::boolean_struct::False, types::*,
-};
+use pyo3::{PyClass, create_exception, exceptions::PyValueError, prelude::*, pyclass::boolean_struct::False, types::*};
 use python::*;
 use std::{panic::Location, path::MAIN_SEPARATOR};
 
-create_exception!(
-    rlbot_flatbuffers,
-    InvalidFlatbuffer,
-    PyValueError,
-    "Invalid FlatBuffer"
-);
+create_exception!(rlbot_flatbuffers, InvalidFlatbuffer, PyValueError, "Invalid FlatBuffer");
 
 #[inline(never)]
 #[track_caller]
@@ -147,11 +139,7 @@ where
 
     for py_item in items.iter() {
         match script_iter.next() {
-            Some(item) => py_item
-                .downcast_into_exact::<U>()
-                .unwrap()
-                .borrow_mut()
-                .unpack_from(py, item),
+            Some(item) => py_item.downcast_into_exact::<U>().unwrap().borrow_mut().unpack_from(py, item),
             None => {
                 let items_len = items.len();
                 for i in 0..items_len - scripts_len {
