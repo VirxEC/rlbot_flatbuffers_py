@@ -558,7 +558,10 @@ impl StructBindGenerator {
                     if *is_optional {
                         write_fmt!(self, "            self.{variable_name}");
                         write_str!(self, "                .as_ref()");
-                        write_str!(self, "                .map_or_else(crate::none_str, |i| i.borrow(py).inner_repr(py)),");
+                        write_str!(
+                            self,
+                            "                .map_or_else(crate::none_str, |i| i.borrow(py).inner_repr(py)),"
+                        );
                     } else {
                         write_fmt!(self, "            self.{variable_name}.borrow(py).inner_repr(py),");
                     }
